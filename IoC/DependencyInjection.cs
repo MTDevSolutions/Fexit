@@ -32,6 +32,7 @@ public static class DependencyInjection
         }
 
         services.AddScoped<IAccionRepository, AccionRepository>();
+        services.AddScoped<ICatalogoRepository, CatalogoRepository>();
 
         // La factory de drivers no toca la base: fuera del if, para que no dependa de que exista
         // connection string. Singleton y no Scoped: no tiene estado propio, sólo lee el timeout de

@@ -66,6 +66,23 @@ public class ManejadorExcepcionesTests
     }
 
     [Fact]
+    public async Task ConfigInvalidaEnElAbm_Da400()
+    {
+        // La misma excepción vale 400 en /catalogo y 500 en la ejecución: allá el que se equivocó es
+        // quien manda el pedido, acá es una fila guardada que está rota.
+        var middleware = new ManejadorExcepciones(
+            _ => Task.FromException(new ConfigInvalidaException("Protocolo desconocido.")),
+            NullLogger<ManejadorExcepciones>.Instance);
+        var ctx = new DefaultHttpContext();
+        ctx.Request.Path = "/catalogo/equipos";
+        ctx.Response.Body = new MemoryStream();
+
+        await middleware.InvokeAsync(ctx);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, ctx.Response.StatusCode);
+    }
+
+    [Fact]
     public async Task UnaExcepcionNoPrevista_Da500YNoFiltraNada()
     {
         // Lo más importante de este test: el mensaje de una excepción cualquiera puede traer una ruta

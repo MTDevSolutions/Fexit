@@ -36,8 +36,16 @@ public class ManejadorExcepciones(RequestDelegate siguiente, ILogger<ManejadorEx
         }
         catch (ConfigInvalidaException ex)
         {
-            logger.LogError(ex, "Configuración inválida en el catálogo. Ruta={Ruta}", ctx.Request.Path);
-            await ResponderAsync(ctx, StatusCodes.Status500InternalServerError, ex.Message);
+            // Misma excepción, dos significados según de dónde venga. En /catalogo el que se equivocó
+            // es quien manda el pedido: 400. En la ejecución significa que la fila guardada está
+            // rota, que es un problema del servidor: 500, y Dixit lo cierra como definitivo.
+            var esCarga = ctx.Request.Path.StartsWithSegments("/catalogo");
+            if (!esCarga)
+                logger.LogError(ex, "Configuración inválida en el catálogo. Ruta={Ruta}", ctx.Request.Path);
+
+            await ResponderAsync(ctx,
+                esCarga ? StatusCodes.Status400BadRequest : StatusCodes.Status500InternalServerError,
+                ex.Message);
         }
         catch (Exception ex)
         {
