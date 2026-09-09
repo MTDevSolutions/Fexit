@@ -185,6 +185,38 @@ public class EjecutorPlcTests
     }
 
     [Fact]
+    public async Task UnaEscrituraEnUnTipoDeSoloLecturaTiraConfigInvalida()
+    {
+        // InputRegister y DiscreteInput no se pueden escribir. Sin esta guarda la escritura llegaría
+        // al driver, que tiraría NotSupportedException — y ésa sí la atrapa el `when` y sale como
+        // EquipoInalcanzable, o sea "no se pudo comunicar" para un equipo que está perfecto. Dixit lo
+        // reintentaría cinco veces en vez de cerrarlo para que alguien mire la fila.
+        var (ejecutor, driver) = Armar();
+        var accion = Escritura(usaEnclavamientos: false);
+        accion.TipoDireccion = CteFexit.InputRegister;
+
+        await Assert.ThrowsAsync<ConfigInvalidaException>(
+            () => ejecutor.EjecutarAsync(new AccionAEjecutar(accion, Equipo(), []), default));
+
+        Assert.Empty(driver.Escrituras);
+    }
+
+    [Fact]
+    public async Task UnTipoDeDireccionDesconocidoTiraConfigInvalida()
+    {
+        // El CHECK de la base lo impide, pero una fila migrada a mano no pasó por ahí. Es config, no
+        // red: tiene que cerrar definitivo y no entrar al carril de reintentos.
+        var (ejecutor, driver) = Armar();
+        var accion = Escritura(usaEnclavamientos: false);
+        accion.TipoDireccion = "Profibus";
+
+        await Assert.ThrowsAsync<ConfigInvalidaException>(
+            () => ejecutor.EjecutarAsync(new AccionAEjecutar(accion, Equipo(), []), default));
+
+        Assert.Empty(driver.Escrituras);
+    }
+
+    [Fact]
     public async Task ElDriverSeCierraAunqueLaEjecucionFalle()
     {
         // Un socket que queda abierto por cada fallo agota los del proceso, y en una planta eso se
