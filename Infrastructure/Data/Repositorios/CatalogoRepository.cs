@@ -31,12 +31,14 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
             throw new ConfigInvalidaException("Faltan el nombre o la IP del equipo.");
         if (req.Puerto <= 0 || req.Puerto > 65535)
             throw new ConfigInvalidaException("El puerto está fuera de rango.");
-        if (await ctx.Equipos.AnyAsync(e => e.Nombre == req.Nombre, ct))
+
+        var nombre = req.Nombre.Trim();
+        if (await ctx.Equipos.AnyAsync(e => e.Nombre == nombre, ct))
             throw new ConfigInvalidaException("Ya hay un equipo con ese nombre.");
 
         var equipo = new Equipo
         {
-            Nombre = req.Nombre.Trim(), TipoEquipo = req.TipoEquipo, Ip = req.Ip.Trim(),
+            Nombre = nombre, TipoEquipo = req.TipoEquipo, Ip = req.Ip.Trim(),
             Puerto = req.Puerto, Protocolo = req.Protocolo, Modelo = req.Modelo,
             Rack = req.Rack, Slot = req.Slot,
         };
@@ -54,7 +56,7 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
     public async Task BorrarEquipoAsync(long id, CancellationToken ct)
     {
         var equipo = await ctx.Equipos.FirstOrDefaultAsync(e => e.Id == id, ct)
-            ?? throw new AccionNoEncontradaException();
+            ?? throw new AccionNoEncontradaException("El equipo no existe.");
 
         // FK Restrict: borrarlo dejaría acciones apuntando a la nada, y Dixit las seguiría ofreciendo
         // hasta que alguien las ejecute. Se avisa acá en vez de dejar tirar la FK.
@@ -69,7 +71,7 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
     public async Task<long> CrearEnclavamientoAsync(long equipoId, EnclavamientoRequest req, CancellationToken ct)
     {
         if (!await ctx.Equipos.AnyAsync(e => e.Id == equipoId, ct))
-            throw new AccionNoEncontradaException();
+            throw new AccionNoEncontradaException("El equipo no existe.");
         if (string.IsNullOrWhiteSpace(req.Direccion) || string.IsNullOrWhiteSpace(req.Nombre))
             throw new ConfigInvalidaException("Faltan la dirección o el nombre del enclavamiento.");
         if (!CteFexit.TiposDireccion.Contains(req.TipoDireccion))
@@ -99,7 +101,7 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
     public async Task BorrarEnclavamientoAsync(long id, CancellationToken ct)
     {
         var fila = await ctx.Enclavamientos.FirstOrDefaultAsync(e => e.Id == id, ct)
-            ?? throw new AccionNoEncontradaException();
+            ?? throw new AccionNoEncontradaException("El enclavamiento no existe.");
         ctx.Enclavamientos.Remove(fila);
         await ctx.SaveChangesAsync(ct);
     }

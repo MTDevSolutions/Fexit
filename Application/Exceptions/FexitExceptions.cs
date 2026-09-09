@@ -9,8 +9,15 @@ namespace Application.Exceptions;
 /// Dixit y la columna Error del comando, que un superadmin ve. La causa real va en InnerException,
 /// que se loguea de este lado y no sale por la API.
 /// </summary>
-public class AccionNoEncontradaException()
-    : Exception("La acción no existe.");
+/// <summary>
+/// El recurso no existe. En la ejecución el mensaje es SIEMPRE el default: el 404 no distingue "no
+/// existe" de "existe pero está deshabilitada" (§6), porque distinguir le confirmaría a quien
+/// pregunta que el código existe. El ABM sí lo especializa — ahí quien llama ya tiene la clave de la
+/// instalación, y un 404 que diga "no existe la acción" cuando lo que falta es un equipo manda a
+/// buscar el problema al lugar equivocado.
+/// </summary>
+public class AccionNoEncontradaException(string mensaje = "La acción no existe.")
+    : Exception(mensaje);
 
 public class ModoNoCoincideException()
     : Exception("La acción no es del modo esperado.");

@@ -77,6 +77,33 @@ public class CatalogoAbmTests
     }
 
     [Fact]
+    public async Task UnNombreDeEquipoQueSoloDifiereEnEspaciosSeRechaza()
+    {
+        // El chequeo de duplicado comparaba el nombre crudo y guardaba el trimeado, así que
+        // " bomba3 " pasaba el chequeo contra un "bomba3" existente y después chocaba contra el
+        // índice único: DbUpdateException, o sea el 500 ilegible que esta capa existe para evitar.
+        using var prueba = new DbDePrueba();
+        await Controller(prueba).CrearEquipo(Equipo(), default);
+
+        await Assert.ThrowsAsync<ConfigInvalidaException>(
+            () => Controller(prueba).CrearEquipo(Equipo() with { Nombre = "  bomba3  " }, default));
+    }
+
+    [Fact]
+    public async Task ElErrorDeUnEquipoQueNoExisteHablaDelEquipo()
+    {
+        // El 404 del ABM decía "La acción no existe" para un equipo que falta, y quien carga el
+        // catálogo por curl se va a volver loco buscando en el lugar equivocado. En la EJECUCIÓN el
+        // mensaje sigue siendo el genérico a propósito: ahí el 404 no puede distinguir.
+        using var prueba = new DbDePrueba();
+
+        var ex = await Assert.ThrowsAsync<AccionNoEncontradaException>(
+            () => Controller(prueba).BorrarEquipo(999, default));
+
+        Assert.Contains("equipo", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task UnEnclavamientoSeCuelgaDelEquipo()
     {
         using var prueba = new DbDePrueba();
