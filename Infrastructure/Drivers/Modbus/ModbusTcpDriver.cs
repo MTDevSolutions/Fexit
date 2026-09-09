@@ -222,8 +222,7 @@ namespace Infrastructure.Drivers.Modbus
             if (data.Length % 2 != 0)
                 throw new ArgumentException("Los datos para registros deben tener longitud par", nameof(data));
 
-            ushort[] registers = new ushort[data.Length / 2];
-            Buffer.BlockCopy(data, 0, registers, 0, data.Length);
+            ushort[] registers = BytesAUShortArray(data);
 
             if (registers.Length == 1)
             {
@@ -237,11 +236,34 @@ namespace Infrastructure.Drivers.Modbus
             }
         }
 
-        private static byte[] UShortArrayToBytes(ushort[] values)
+        /// <summary>
+        /// Big-endian explícito, NO Buffer.BlockCopy. BlockCopy copia la representación en memoria del
+        /// host —little-endian en x86— y del otro lado ConversorValores.AEntero lee big-endian, así que
+        /// un registro que vale 1 se leía como 256 y escribir 1 mandaba 256 al PLC. Los dos lados eran
+        /// correctos por separado; el error estaba en el par. Modbus es el protocolo de "Schneider y
+        /// casi todos", así que esto afectaba a la mayoría de las instalaciones.
+        /// </summary>
+        internal static byte[] UShortArrayToBytes(ushort[] values)
         {
             byte[] result = new byte[values.Length * 2];
-            Buffer.BlockCopy(values, 0, result, 0, result.Length);
+            for (int i = 0; i < values.Length; i++)
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt16BigEndian(
+                    result.AsSpan(i * 2, 2), values[i]);
             return result;
+        }
+
+        /// <summary>
+        /// Simétrico de <see cref="UShortArrayToBytes"/>: mismo motivo, mismo arreglo. Sin esto,
+        /// WriteRegisters armaba el ushort[] con Buffer.BlockCopy (orden del host) a partir de bytes
+        /// big-endian, y escribir 1 mandaba 256 al PLC.
+        /// </summary>
+        internal static ushort[] BytesAUShortArray(byte[] datos)
+        {
+            ushort[] registers = new ushort[datos.Length / 2];
+            for (int i = 0; i < registers.Length; i++)
+                registers[i] = System.Buffers.Binary.BinaryPrimitives.ReadUInt16BigEndian(
+                    datos.AsSpan(i * 2, 2));
+            return registers;
         }
 
         private static byte[] BoolArrayToBytes(bool[] values)
