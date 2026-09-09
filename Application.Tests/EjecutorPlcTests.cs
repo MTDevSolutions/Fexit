@@ -217,6 +217,18 @@ public class EjecutorPlcTests
     }
 
     [Fact]
+    public async Task UnaDireccionMalFormadaEsErrorDeConfigYNoDeRed()
+    {
+        // El driver la rechaza antes de tocar la red. Si saliera como EquipoInalcanzable, Dixit
+        // reintentaría contra un equipo sano y el usuario buscaría el problema en el cableado.
+        var driver = new DriverFalso { TiraAlEscribir = new FormatException("Formato de dirección S7 no válido") };
+        var (ejecutor, _) = Armar(driver);
+        var accion = new AccionAEjecutar(Escritura(usaEnclavamientos: false), Equipo(), []);
+
+        await Assert.ThrowsAsync<ConfigInvalidaException>(() => ejecutor.EjecutarAsync(accion, default));
+    }
+
+    [Fact]
     public async Task ElDriverSeCierraAunqueLaEjecucionFalle()
     {
         // Un socket que queda abierto por cada fallo agota los del proceso, y en una planta eso se

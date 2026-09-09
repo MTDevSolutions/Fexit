@@ -29,6 +29,17 @@ public class EjecutorPlc(IPlcDriverFactory fabrica) : IEjecutorAccion
                 ? await LeerAsync(driver, accion, ct)
                 : await EscribirAsync(driver, accion, ct);
         }
+        catch (Exception ex) when (ex is FormatException or ArgumentException)
+        {
+            // Dirección mal escrita: los drivers la rechazan ANTES de tocar la red (S7Address.Parse
+            // tira FormatException, ModbusTcpDriver tira ArgumentException si no parsea como ushort),
+            // así que no es un problema de comunicación. Sin este catch caía en EquipoInalcanzable y
+            // Dixit reintentaba cinco veces contra un equipo sano, mientras el usuario revisaba el
+            // cableado por un typo en el catálogo. Mismo criterio que la guarda de EsEscribible.
+            // ArgumentOutOfRangeException (valor que no entra en el tipo) hereda de ArgumentException
+            // y cae acá también: también es un error de config, no de red.
+            throw new ConfigInvalidaException("La dirección configurada no tiene un formato válido.", ex);
+        }
         catch (Exception ex) when (ex is not ConfigInvalidaException and not OperationCanceledException)
         {
             // Cualquier fallo hablando con el equipo se traduce acá. El mensaje del driver trae host
