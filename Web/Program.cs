@@ -29,3 +29,6 @@ app.MapGet("/health", () => Results.Ok(new { estado = "ok" }));
 app.MapControllers();
 
 app.Run();
+
+/// <summary>Para que WebApplicationFactory pueda tomar el host desde los tests.</summary>
+public partial class Program;
