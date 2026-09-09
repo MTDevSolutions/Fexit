@@ -18,4 +18,17 @@ public class AccionesController(IAccionRepository repository, IServicioAcciones 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<AccionRemotaDto>>> Listar(CancellationToken ct) =>
         Ok(await repository.ListarAsync(ct));
+
+    /// <summary>
+    /// Ejecuta una acción por su código. El cuerpo no describe la acción: la verifica. Si en este
+    /// catálogo ese código no es del modo que Dixit esperaba, devuelve 409 y no ejecuta nada — es la
+    /// defensa que impide que una fila mal cargada en Dixit como lectura termine escribiendo (§5).
+    ///
+    /// Una precondición que no da NO es un error: es 200 con exito:false y el detalle de cuál falló.
+    /// La acción se ejecutó y decidió no escribir.
+    /// </summary>
+    [HttpPost("{codigo}/ejecutar")]
+    public async Task<ActionResult<ResultadoAccion>> Ejecutar(
+        string codigo, [FromBody] EjecutarAccionRequest request, CancellationToken ct) =>
+        Ok(await servicio.EjecutarAsync(codigo, request.ModoEsperado, ct));
 }

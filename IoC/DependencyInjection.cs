@@ -1,4 +1,5 @@
 using Application.Interfaces;
+using Application.Services;
 using Application.Settings;
 using Infrastructure.Data;
 using Infrastructure.Data.Repositorios;
@@ -41,6 +42,8 @@ public static class DependencyInjection
         // IEnumerable<IEjecutorAccion> y elige por TipoEquipo. Sumar un EjecutorMqtt es una línea
         // igual a ésta.
         services.AddScoped<IEjecutorAccion, EjecutorPlc>();
+
+        services.AddScoped<IServicioAcciones, ServicioAcciones>();
 
         return services;
     }

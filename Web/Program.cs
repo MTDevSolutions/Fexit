@@ -19,6 +19,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UsarManejadorDeExcepciones();
 app.UsarApiKeyDeFexit();
 
 // /health queda FUERA de la api key: es lo que mira el monitoreo de la planta, que no tiene por qué
