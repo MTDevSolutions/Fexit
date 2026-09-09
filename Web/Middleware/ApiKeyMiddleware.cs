@@ -19,12 +19,15 @@ public class ApiKeyMiddleware(RequestDelegate siguiente, FexitSettings settings)
     public ApiKeyMiddleware(RequestDelegate siguiente, IOptions<FexitSettings> settings)
         : this(siguiente, settings.Value) { }
 
-    private static readonly string[] RutasLibres = ["/health", "/swagger"];
+    private static readonly PathString[] RutasLibres = [new("/health"), new("/swagger")];
 
     public async Task InvokeAsync(HttpContext ctx)
     {
-        var ruta = ctx.Request.Path.Value ?? string.Empty;
-        if (RutasLibres.Any(r => ruta.StartsWith(r, StringComparison.OrdinalIgnoreCase)))
+        // StartsWithSegments y NO StartsWith de texto: "/healthcheck-de-alguien".StartsWith("/health")
+        // da true, así que cualquier ruta futura cuyo nombre empiece con esas letras se saltearía la
+        // clave sin que nadie lo note. StartsWithSegments exige que después venga "/" o el fin de la
+        // ruta. Hoy no hay ninguna ruta así; el punto es que agregarla no puede abrir un agujero.
+        if (RutasLibres.Any(r => ctx.Request.Path.StartsWithSegments(r, StringComparison.OrdinalIgnoreCase)))
         {
             await siguiente(ctx);
             return;

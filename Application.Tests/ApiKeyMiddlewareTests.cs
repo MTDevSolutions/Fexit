@@ -69,6 +69,22 @@ public class ApiKeyMiddlewareTests
         Assert.True(siguio);
     }
 
+    [Theory]
+    [InlineData("/healthcheck-de-alguien")]
+    [InlineData("/swaggerdocs")]
+    [InlineData("/healthz")]
+    public async Task UnaRutaQueSoloEmpiezaIgual_NoSeSalteaLaClave(string ruta)
+    {
+        // Con StartsWith de texto, "/healthcheck-de-alguien" empieza con "/health" y pasaba sin
+        // clave. Hoy no existe ninguna ruta así, y ese es justamente el punto: el día que alguien
+        // agregue /healthz o /swaggerdocs, no puede quedar abierta sin que nadie lo note. Es la única
+        // defensa del servicio además de la red.
+        var (status, siguio) = await Correr(null, ruta: ruta);
+
+        Assert.Equal(StatusCodes.Status401Unauthorized, status);
+        Assert.False(siguio);
+    }
+
     [Fact]
     public async Task SinClaveConfigurada_RechazaTodo()
     {
