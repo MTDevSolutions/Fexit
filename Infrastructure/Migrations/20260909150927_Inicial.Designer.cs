@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(FexitDbContext))]
-    [Migration("20260909150209_Inicial")]
+    [Migration("20260909150927_Inicial")]
     partial class Inicial
     {
         /// <inheritdoc />
@@ -41,9 +41,7 @@ namespace Infrastructure.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("Habilitada")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
-                        .HasDefaultValue(true);
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Modo")
                         .IsRequired()

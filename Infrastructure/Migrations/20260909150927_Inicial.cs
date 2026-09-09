@@ -48,7 +48,7 @@ namespace Infrastructure.Migrations
                     TipoDireccion = table.Column<string>(type: "TEXT", nullable: true),
                     Valor = table.Column<int>(type: "INTEGER", nullable: true),
                     UsaEnclavamientos = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: false),
-                    Habilitada = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: true)
+                    Habilitada = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {

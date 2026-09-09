@@ -26,7 +26,13 @@ public class AccionConfiguration : IEntityTypeConfiguration<Accion>
         b.Property(a => a.Descripcion).IsRequired();
         b.Property(a => a.Modo).IsRequired();
         b.Property(a => a.UsaEnclavamientos).HasDefaultValue(false);
-        b.Property(a => a.Habilitada).HasDefaultValue(true);
+
+        // Sin HasDefaultValue a propósito: con ese mapeo EF marca la columna ValueGeneratedOnAdd y
+        // omite del INSERT toda propiedad cuyo valor sea el default del CLR — el default del CLR de
+        // un bool es false, que es el OPUESTO del default que tendría la base (true). Una acción
+        // creada explícitamente como deshabilitada se guardaría habilitada, en silencio. El default
+        // de esta columna lo dueña C#: la propiedad nace en false y cada alta la setea explícita.
+        b.Property(a => a.Habilitada);
 
         b.HasOne(a => a.Equipo).WithMany()
             .HasForeignKey(a => a.EquipoId).OnDelete(DeleteBehavior.Restrict);

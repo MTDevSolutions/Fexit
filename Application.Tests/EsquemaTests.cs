@@ -217,6 +217,30 @@ public class EsquemaTests
         Assert.Empty(ctx.Acciones);
     }
 
+    [Fact]
+    public void UnaAccionDeshabilitadaSeGuardaDeshabilitada()
+    {
+        // Parece trivial y no lo es. Con HasDefaultValue(true) sobre esta columna, EF la marca
+        // ValueGeneratedOnAdd y omite del INSERT toda propiedad cuyo valor sea el default del CLR:
+        // como el default del CLR de un bool es false — el OPUESTO del default de la base — una
+        // acción creada como deshabilitada se guardaba habilitada, en silencio. Y una acción
+        // deshabilitada tiene que dar 404 al ejecutarse, así que el mapeo se comía la regla de
+        // negocio entera. El default de esta columna lo dueña C#, no la base.
+        using var prueba = new DbDePrueba();
+        using var ctx = prueba.CrearContext();
+        var equipo = NuevoEquipo();
+        ctx.Equipos.Add(equipo);
+        ctx.SaveChanges();
+
+        var accion = Accion("una_accion", equipo.Id);
+        accion.Habilitada = false;
+        ctx.Acciones.Add(accion);
+        ctx.SaveChanges();
+        ctx.ChangeTracker.Clear();
+
+        Assert.False(ctx.Acciones.Single().Habilitada);
+    }
+
     private static Accion Accion(string codigo, long equipoId) => new()
     {
         Codigo = codigo,

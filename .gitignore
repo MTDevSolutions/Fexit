@@ -3,3 +3,4 @@ obj/
 App_Data/
 logs/
 *.user
+fexit-design.db
