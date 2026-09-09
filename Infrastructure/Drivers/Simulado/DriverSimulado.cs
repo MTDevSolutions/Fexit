@@ -50,18 +50,32 @@ public sealed class DriverSimulado(string ip, int puerto) : IPlcDriver
     public Task<byte[]> ReadAsync(TipoDireccionPlc tipo, string direccion, int longitud,
                                   CancellationToken cancellationToken = default)
     {
+        // Mismo orden y mismas excepciones que los drivers reales (ver ModbusTcpDriver.ReadAsync):
+        // validar argumentos ANTES de mirar la conexión. Un simulador más permisivo que el equipo
+        // que simula es peor que no tener simulador: da confianza falsa.
+        if (string.IsNullOrWhiteSpace(direccion))
+            throw new ArgumentException("La dirección no puede estar vacía", nameof(direccion));
+
+        if (longitud <= 0)
+            throw new ArgumentException("La longitud debe ser mayor a 0", nameof(longitud));
+
         if (!_conectado)
             throw new InvalidOperationException("No hay conexión establecida con el equipo.");
 
-        var ancho = Math.Max(1, longitud);
         return Task.FromResult(
-            Memoria.TryGetValue(Clave(tipo, direccion), out var datos) && datos.Length == ancho
+            Memoria.TryGetValue(Clave(tipo, direccion), out var datos) && datos.Length == longitud
                 ? datos
-                : new byte[ancho]);
+                : new byte[longitud]);
     }
 
     public Task WriteAsync(TipoDireccionPlc tipo, string direccion, byte[] datos)
     {
+        if (string.IsNullOrWhiteSpace(direccion))
+            throw new ArgumentException("La dirección no puede estar vacía", nameof(direccion));
+
+        if (datos == null || datos.Length == 0)
+            throw new ArgumentException("Los datos no pueden estar vacíos", nameof(datos));
+
         if (!_conectado)
             throw new InvalidOperationException("No hay conexión establecida con el equipo.");
 
@@ -70,6 +84,16 @@ public sealed class DriverSimulado(string ip, int puerto) : IPlcDriver
     }
 
     public void Dispose() => _conectado = false;
+
+    /// <summary>
+    /// Vuelve la planta simulada a cero: todas las direcciones leen 0 otra vez, como un equipo recién
+    /// arrancado. La memoria es estática porque simula un equipo que recuerda entre ejecuciones — la
+    /// factory crea un driver nuevo por cada acción, así que sin eso una escritura y la lectura
+    /// siguiente no se verían. El precio es que el estado sobrevive a todo, incluido el proceso de
+    /// tests: dos tests que compartan ip+puerto+tipo+dirección se pisan, y el resultado depende del
+    /// orden de ejecución. Por eso cada test usa su propia IP y llama a esto al empezar.
+    /// </summary>
+    public static void Reiniciar() => Memoria.Clear();
 
     private string Clave(TipoDireccionPlc tipo, string direccion) => $"{ip}:{puerto}:{tipo}:{direccion}";
 }

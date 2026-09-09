@@ -5,6 +5,12 @@ namespace Application.Tests;
 
 public class DriverSimuladoTests
 {
+    // xUnit crea una instancia nueva de la clase por test, así que el constructor corre antes de
+    // cada uno. La memoria del simulado es estática (ver DriverSimulado.Reiniciar): sin este reset,
+    // dos tests que compartan ip+puerto+tipo+dirección se pisarían y el resultado dependería del
+    // orden de ejecución.
+    public DriverSimuladoTests() => DriverSimulado.Reiniciar();
+
     [Fact]
     public async Task LoQueSeEscribeEsLoQueSeLee()
     {
@@ -53,5 +59,22 @@ public class DriverSimuladoTests
         using var driver = new DriverSimulado(DriverSimulado.IpQueFalla, 502);
 
         await Assert.ThrowsAnyAsync<Exception>(() => driver.ConnectAsync());
+    }
+
+    [Fact]
+    public async Task ElSimuladoValidaLoMismoQueUnEquipoReal()
+    {
+        // Un simulador más permisivo que el equipo que simula es peor que no tener simulador: un
+        // test del ejecutor pasaría acá y explotaría contra un PLC. Los drivers reales tiran
+        // ArgumentException con dirección vacía o longitud inválida, así que éste también.
+        using var driver = new DriverSimulado("10.0.0.98", 502);
+        await driver.ConnectAsync();
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => driver.ReadAsync(TipoDireccionPlc.S7Bit, "  ", 1, default));
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => driver.ReadAsync(TipoDireccionPlc.S7Bit, "DB1.DBX0.0", 0, default));
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => driver.WriteAsync(TipoDireccionPlc.S7Bit, "DB1.DBX0.0", []));
     }
 }

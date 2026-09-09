@@ -75,6 +75,6 @@ public class DriverFactoryTests
         // lectura, el síntoma sería una PlcException genérica y nadie sospecharía del modelo.
         var fabrica = new PlcDriverFactory(Settings);
 
-        Assert.ThrowsAny<Exception>(() => fabrica.Crear(Equipo(CteFexit.ProtocoloSiemensS7, "LOGO8")));
+        Assert.Throws<NotSupportedException>(() => fabrica.Crear(Equipo(CteFexit.ProtocoloSiemensS7, "LOGO8")));
     }
 }
