@@ -2,6 +2,7 @@ using Application.Interfaces;
 using Application.Settings;
 using Infrastructure.Data;
 using Infrastructure.Data.Repositorios;
+using Infrastructure.Drivers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,6 +30,11 @@ public static class DependencyInjection
         }
 
         services.AddScoped<IAccionRepository, AccionRepository>();
+
+        // La factory de drivers no toca la base: fuera del if, para que no dependa de que exista
+        // connection string. Singleton y no Scoped: no tiene estado propio, sólo lee el timeout de
+        // los settings. Los drivers que crea sí tienen estado y los dispone quien los pide.
+        services.AddSingleton<IPlcDriverFactory, PlcDriverFactory>();
 
         return services;
     }
