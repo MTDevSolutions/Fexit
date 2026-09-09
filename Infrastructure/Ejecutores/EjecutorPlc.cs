@@ -77,8 +77,16 @@ public class EjecutorPlc(IPlcDriverFactory fabrica) : IEjecutorAccion
         if (!TipoDireccionPlcParser.EsEscribible(tipo))
             throw new ConfigInvalidaException("El tipo de dirección de la acción es de sólo lectura.");
 
-        if (fila.UsaEnclavamientos && accion.Enclavamientos.Count > 0)
+        if (fila.UsaEnclavamientos)
         {
+            // Sin el else, una acción marcada como "necesita precondición" sobre un equipo sin
+            // enclavamientos cargados escribía igual, en silencio: la intención declarada se degradaba
+            // sola. Se puede llegar acá borrando enclavamientos por el ABM, que no mira si alguna
+            // acción del equipo los declara. Falla cerrado a propósito: el actuador no se mueve.
+            if (accion.Enclavamientos.Count == 0)
+                throw new ConfigInvalidaException(
+                    "La acción exige verificar enclavamientos y el equipo no tiene ninguno cargado.");
+
             // Si esta lectura falla, sube como EquipoInalcanzable y NO se escribe: no se sabe en qué
             // estado está el equipo, y ante la duda el actuador no se mueve.
             var lecturas = await LeerEnclavamientosAsync(driver, accion, ct);

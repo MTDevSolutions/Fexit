@@ -217,6 +217,19 @@ public class EjecutorPlcTests
     }
 
     [Fact]
+    public async Task UnaEscrituraQueExigeEnclavamientosSinNingunoCargadoNoEscribe()
+    {
+        // La intención declarada (UsaEnclavamientos=true) no puede degradarse sola a "escribí igual".
+        // Falla cerrado: el actuador no se mueve y alguien mira la fila.
+        var (ejecutor, driver) = Armar();
+        var accion = new AccionAEjecutar(Escritura(usaEnclavamientos: true), Equipo(), []);
+
+        await Assert.ThrowsAsync<ConfigInvalidaException>(() => ejecutor.EjecutarAsync(accion, default));
+
+        Assert.Empty(driver.Escrituras);
+    }
+
+    [Fact]
     public async Task UnaDireccionMalFormadaEsErrorDeConfigYNoDeRed()
     {
         // El driver la rechaza antes de tocar la red. Si saliera como EquipoInalcanzable, Dixit
