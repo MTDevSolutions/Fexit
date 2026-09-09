@@ -3,6 +3,7 @@ using Application.Settings;
 using Infrastructure.Data;
 using Infrastructure.Data.Repositorios;
 using Infrastructure.Drivers;
+using Infrastructure.Ejecutores;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,6 +36,11 @@ public static class DependencyInjection
         // connection string. Singleton y no Scoped: no tiene estado propio, sólo lee el timeout de
         // los settings. Los drivers que crea sí tienen estado y los dispone quien los pide.
         services.AddSingleton<IPlcDriverFactory, PlcDriverFactory>();
+
+        // Se registra como IEjecutorAccion y no como EjecutorPlc: el servicio de la tarea 7 resuelve
+        // IEnumerable<IEjecutorAccion> y elige por TipoEquipo. Sumar un EjecutorMqtt es una línea
+        // igual a ésta.
+        services.AddScoped<IEjecutorAccion, EjecutorPlc>();
 
         return services;
     }
