@@ -31,8 +31,8 @@ Todo pide `X-Api-Key`, menos `/health`.
 | GET | `/acciones` | El catálogo publicado. Lo lee el ABM de Dixit. |
 | POST | `/acciones/{codigo}/ejecutar` | Ejecuta. Cuerpo: `{"modoEsperado":"escritura"}`. |
 | GET/POST/DELETE | `/catalogo/equipos` | Carga de equipos. |
-| GET/POST/DELETE | `/catalogo/equipos/{id}/enclavamientos` | Carga de enclavamientos. |
-| DELETE | `/catalogo/enclavamientos/{id}` | |
+| GET/POST | `/catalogo/equipos/{id}/enclavamientos` | Carga de enclavamientos. |
+| DELETE | `/catalogo/enclavamientos/{id}` | Borra uno. Ojo: cuelga de `/catalogo`, no de su equipo. |
 | GET/POST/PUT/DELETE | `/catalogo/acciones` | Carga de acciones. |
 
 `modoEsperado` no describe la acción: la **verifica**. Si en este catálogo el código no es de ese
