@@ -1,5 +1,7 @@
+using Application.Interfaces;
 using Application.Settings;
 using Infrastructure.Data;
+using Infrastructure.Data.Repositorios;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,6 +27,8 @@ public static class DependencyInjection
             // Fail fast en el wiring, igual que DixitBE: si la migración no corre, la app no levanta.
             new FexitDbInitializer(settings.ConnectionString).Inicializar();
         }
+
+        services.AddScoped<IAccionRepository, AccionRepository>();
 
         return services;
     }

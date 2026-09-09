@@ -1,5 +1,6 @@
 using IoC;
 using Serilog;
+using Web.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +18,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UsarApiKeyDeFexit();
 
 // /health queda FUERA de la api key: es lo que mira el monitoreo de la planta, que no tiene por qué
 // conocer la clave. No dice nada del catálogo ni de los equipos, así que no filtra nada.
