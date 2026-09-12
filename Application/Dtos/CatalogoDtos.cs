@@ -26,8 +26,10 @@ public record EnclavamientoDto(
 
 public record AccionRequest(
     string Codigo, string Descripcion, string Modo, long EquipoId,
-    string? Direccion, string? TipoDireccion, int? Valor, bool UsaEnclavamientos, bool Habilitada);
+    string? Direccion, string? TipoDireccion, int? Valor, bool UsaEnclavamientos, bool Habilitada,
+    string? DefinicionParametrosJson = null, string? ConfigJson = null);
 
 public record AccionCatalogoDto(
     long Id, string Codigo, string Descripcion, string Modo, long EquipoId,
-    string? Direccion, string? TipoDireccion, int? Valor, bool UsaEnclavamientos, bool Habilitada);
+    string? Direccion, string? TipoDireccion, int? Valor, bool UsaEnclavamientos, bool Habilitada,
+    string? DefinicionParametrosJson = null, string? ConfigJson = null);

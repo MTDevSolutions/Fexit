@@ -2,6 +2,7 @@ using Application.Constantes;
 using Application.Dtos;
 using Application.Exceptions;
 using Application.Interfaces;
+using Application.Services;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,8 +20,13 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
         if (!CteFexit.Protocolos.Contains(req.Protocolo))
             throw new ConfigInvalidaException(
                 $"Protocolo desconocido. Los válidos son: {string.Join(", ", CteFexit.Protocolos)}.");
-        if (req.TipoEquipo != CteFexit.TipoEquipoPlc)
-            throw new ConfigInvalidaException($"Tipo de equipo desconocido. El único válido es: {CteFexit.TipoEquipoPlc}.");
+        if (!CteFexit.TiposEquipo.Contains(req.TipoEquipo))
+            throw new ConfigInvalidaException(
+                $"Tipo de equipo desconocido. Los válidos son: {string.Join(", ", CteFexit.TiposEquipo)}.");
+        // El protocolo tiene que ser del tipo: un cartel sólo habla Huidu, y un PLC nunca.
+        if ((req.TipoEquipo == CteFexit.TipoEquipoCartel) != (req.Protocolo == CteFexit.ProtocoloHuiduSdk))
+            throw new ConfigInvalidaException(
+                $"Un equipo {CteFexit.TipoEquipoCartel} usa el protocolo {CteFexit.ProtocoloHuiduSdk}, y ningún otro tipo lo usa.");
         // Se valida SIEMPRE, aunque en Modbus y en Simulado se ignore: si se dejara pasar cualquier
         // cosa ahí, el día que ese equipo cambie a SiemensS7 la fila quedaría con un modelo inválido y
         // el error saldría recién al ejecutar.
@@ -115,6 +121,7 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
             Codigo = req.Codigo.Trim(), Descripcion = req.Descripcion.Trim(), Modo = req.Modo,
             EquipoId = req.EquipoId, Direccion = req.Direccion?.Trim(), TipoDireccion = req.TipoDireccion,
             Valor = req.Valor, UsaEnclavamientos = req.UsaEnclavamientos, Habilitada = req.Habilitada,
+            DefinicionParametrosJson = NoVacio(req.DefinicionParametrosJson), ConfigJson = NoVacio(req.ConfigJson),
         };
         ctx.Acciones.Add(accion);
         await ctx.SaveChangesAsync(ct);
@@ -127,8 +134,13 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
         await ctx.Acciones.AsNoTracking().OrderBy(a => a.Codigo)
             .Select(a => new AccionCatalogoDto(
                 a.Id, a.Codigo, a.Descripcion, a.Modo, a.EquipoId,
-                a.Direccion, a.TipoDireccion, a.Valor, a.UsaEnclavamientos, a.Habilitada))
+                a.Direccion, a.TipoDireccion, a.Valor, a.UsaEnclavamientos, a.Habilitada,
+                a.DefinicionParametrosJson, a.ConfigJson))
             .ToListAsync(ct);
+
+    // Vacío es más fácil de mandar por accidente que null, y la columna tiene que quedar en null
+    // para que "sin parámetros"/"sin config" sea una sola representación, no dos.
+    private static string? NoVacio(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 
     public async Task EditarAccionAsync(long id, AccionRequest req, CancellationToken ct)
     {
@@ -146,6 +158,8 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
         accion.Valor = req.Valor;
         accion.UsaEnclavamientos = req.UsaEnclavamientos;
         accion.Habilitada = req.Habilitada;
+        accion.DefinicionParametrosJson = NoVacio(req.DefinicionParametrosJson);
+        accion.ConfigJson = NoVacio(req.ConfigJson);
         await ctx.SaveChangesAsync(ct);
     }
 
@@ -167,24 +181,72 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
             throw new ConfigInvalidaException("Faltan el código o la descripción de la acción.");
         if (!CteFexit.EsModoValido(req.Modo))
             throw new ConfigInvalidaException($"Modo desconocido. Los válidos son: {CteFexit.ModoLectura}, {CteFexit.ModoEscritura}.");
-        if (!await ctx.Equipos.AnyAsync(e => e.Id == req.EquipoId, ct))
-            throw new ConfigInvalidaException("El equipo de la acción no existe.");
+        var equipo = await ctx.Equipos.AsNoTracking().FirstOrDefaultAsync(e => e.Id == req.EquipoId, ct)
+            ?? throw new ConfigInvalidaException("El equipo de la acción no existe.");
 
         var codigo = req.Codigo.Trim();
         if (await ctx.Acciones.AnyAsync(a => a.Codigo == codigo && a.Id != idQueSeEdita, ct))
             throw new ConfigInvalidaException("Ya hay una acción con ese código.");
 
-        if (req.Modo == CteFexit.ModoEscritura)
+        var defs = ValidadorParametros.LeerDefinicion(req.DefinicionParametrosJson);
+        ValidadorParametros.ValidarDefinicion(defs);
+
+        if (req.Modo == CteFexit.ModoLectura)
         {
-            if (string.IsNullOrWhiteSpace(req.Direccion) || string.IsNullOrWhiteSpace(req.TipoDireccion)
-                || req.Valor is null)
-                throw new ConfigInvalidaException("Una acción de escritura necesita dirección, tipo de dirección y valor.");
-            if (!CteFexit.TiposDireccion.Contains(req.TipoDireccion))
-                throw new ConfigInvalidaException("Tipo de dirección desconocido.");
-            // InputRegister y DiscreteInput no se pueden escribir. Cargarla dejaría una fila que falla
-            // recién al ejecutarse, con un mensaje del driver que no dice que el problema es la carga.
-            if (!TipoDireccionPlcParser.EsEscribible(TipoDireccionPlcParser.Parsear(req.TipoDireccion)))
-                throw new ConfigInvalidaException("Ese tipo de dirección es de sólo lectura: no admite una acción de escritura.");
+            if (defs.Count > 0)
+                throw new ConfigInvalidaException("Una acción de lectura no lleva parámetros.");
+            if (equipo.TipoEquipo == CteFexit.TipoEquipoCartel)
+                throw new ConfigInvalidaException("Un cartel no admite acciones de lectura.");
+            return;
         }
+
+        if (equipo.TipoEquipo == CteFexit.TipoEquipoCartel)
+            ValidarEscrituraCartel(req, defs);
+        else
+            ValidarEscrituraPlc(req, defs);
+    }
+
+    private static void ValidarEscrituraPlc(AccionRequest req, List<DefinicionParametro> defs)
+    {
+        if (string.IsNullOrWhiteSpace(req.Direccion) || string.IsNullOrWhiteSpace(req.TipoDireccion)
+            || req.Valor is null)
+            throw new ConfigInvalidaException("Una acción de escritura necesita dirección, tipo de dirección y valor.");
+        if (!CteFexit.TiposDireccion.Contains(req.TipoDireccion))
+            throw new ConfigInvalidaException("Tipo de dirección desconocido.");
+        if (!TipoDireccionPlcParser.EsEscribible(TipoDireccionPlcParser.Parsear(req.TipoDireccion)))
+            throw new ConfigInvalidaException("Ese tipo de dirección es de sólo lectura: no admite una acción de escritura.");
+
+        if (defs.Any(d => d.Tipo != CteFexit.ParametroEntero))
+            throw new ConfigInvalidaException("Una acción de PLC sólo admite un parámetro entero.");
+        if (defs.Count == 0)
+            return;
+
+        // El usuario manda sólo el valor; dónde se escribe lo dice esta config privada (§3.2).
+        var cfg = ConfigPlcParametro.Leer(req.ConfigJson);
+        if (!TipoDireccionPlcParser.EsEscribible(TipoDireccionPlcParser.Parsear(cfg.TipoDireccionParametro)))
+            throw new ConfigInvalidaException("El tipo de dirección del parámetro es de sólo lectura.");
+    }
+
+    private static void ValidarEscrituraCartel(AccionRequest req, List<DefinicionParametro> defs)
+    {
+        if (req.UsaEnclavamientos)
+            throw new ConfigInvalidaException("Un cartel no tiene enclavamientos.");
+
+        if (defs.Count == 0)
+        {
+            ConfigCartel.Leer(req.ConfigJson);   // fija: tiene que decir qué mostrar
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(req.ConfigJson))
+            throw new ConfigInvalidaException("Un cartel de texto libre no lleva config fija.");
+        if (!defs.Any(d => d.Tipo == CteFexit.ParametroTexto && d.Requerido))
+            throw new ConfigInvalidaException("Un cartel de texto libre necesita un parámetro de texto requerido.");
+        if (defs.Any(d => d.Tipo == CteFexit.ParametroEntero))
+            throw new ConfigInvalidaException("Un cartel no admite parámetros enteros.");
+        var color = defs.FirstOrDefault(d => d.Tipo == CteFexit.ParametroOpcion);
+        if (color is not null && color.Opciones!.Any(o => !CteFexit.ColoresCartel.Contains(o.ToLowerInvariant())))
+            throw new ConfigInvalidaException(
+                $"Los colores válidos del cartel son: {string.Join(", ", CteFexit.ColoresCartel)}.");
     }
 }

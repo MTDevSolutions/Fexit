@@ -15,10 +15,10 @@ public class AccionConfiguration : IEntityTypeConfiguration<Accion>
                 $"Modo IN ('{CteFexit.ModoLectura}','{CteFexit.ModoEscritura}')");
             t.HasCheckConstraint("CK_Acciones_TipoDireccion",
                 $"TipoDireccion IS NULL OR TipoDireccion IN ({EnclavamientoConfiguration.Enumerado(CteFexit.TiposDireccion)})");
-            // Una escritura sin dónde ni qué escribir no es ejecutable. Se valida también en el ABM
-            // para dar un 400 legible, pero acá es donde no se puede saltear cargando por SQL.
-            t.HasCheckConstraint("CK_Acciones_EscrituraCompleta",
-                $"Modo <> '{CteFexit.ModoEscritura}' OR (Direccion IS NOT NULL AND TipoDireccion IS NOT NULL AND Valor IS NOT NULL)");
+            // CK_Acciones_EscrituraCompleta se eliminó el 2026-09-12: exigía dirección y valor en
+            // TODA escritura, y una escritura de cartel no tiene ninguna de las dos. El CHECK no puede
+            // ver el TipoEquipo del equipo, así que la regla vive en el ABM (según el tipo) y en los
+            // ejecutores, que fallan cerrado con ConfigInvalida si la fila está incompleta.
         });
         b.HasKey(a => a.Id);
         b.Property(a => a.Id).ValueGeneratedOnAdd().HasAnnotation("Sqlite:Autoincrement", true);

@@ -14,8 +14,9 @@ public class EquipoConfiguration : IEntityTypeConfiguration<Equipo>
             // Un protocolo que ninguna factory atiende sólo fallaría el día que alguien ejecuta una
             // acción de este equipo. La base lo rechaza al cargarlo.
             t.HasCheckConstraint("CK_Equipos_Protocolo",
-                $"Protocolo IN ('{CteFexit.ProtocoloSiemensS7}','{CteFexit.ProtocoloModbusTcp}','{CteFexit.ProtocoloSimulado}')");
-            t.HasCheckConstraint("CK_Equipos_TipoEquipo", $"TipoEquipo IN ('{CteFexit.TipoEquipoPlc}')");
+                $"Protocolo IN ({EnclavamientoConfiguration.Enumerado(CteFexit.Protocolos)})");
+            t.HasCheckConstraint("CK_Equipos_TipoEquipo",
+                $"TipoEquipo IN ({EnclavamientoConfiguration.Enumerado(CteFexit.TiposEquipo)})");
             t.HasCheckConstraint("CK_Equipos_Puerto", "Puerto > 0 AND Puerto <= 65535");
             // Los cinco que conoce S7netplus. Un modelo equivocado no da un error legible: da una
             // PlcException genérica en la primera lectura, y quien la ve revisa el cableado.

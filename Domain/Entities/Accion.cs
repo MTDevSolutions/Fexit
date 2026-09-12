@@ -1,9 +1,9 @@
 namespace Domain.Entities;
 
 /// <summary>
-/// Lo que Fexit sabe hacer, y la única cosa que Dixit nombra. El Codigo ES la acción: cero
-/// parámetros de negocio (§10.1) — "arrancá la bomba 5 minutos" es otro Codigo, no un parámetro.
-/// Cuatro barreras son cuatro filas, no cuatro ejecutores (§10.2).
+/// Lo que Fexit sabe hacer, y la única cosa que Dixit nombra. El Codigo ES la acción: los
+/// parámetros que declara pueden cambiar con qué valor se hace, nunca qué se hace (spec
+/// 2026-09-12 §9.1). Cuatro barreras son cuatro filas, no cuatro ejecutores (§10.2).
 /// </summary>
 public class Accion
 {
@@ -39,6 +39,18 @@ public class Accion
     /// cargada.
     /// </summary>
     public bool UsaEnclavamientos { get; set; }
+
+    /// <summary>
+    /// Qué parámetros acepta (JSON, lista de DefinicionParametro). Se PUBLICA en GET /acciones.
+    /// Null = ninguno, que es el caso de todas las acciones anteriores a 2026-09-12.
+    /// </summary>
+    public string? DefinicionParametrosJson { get; set; }
+
+    /// <summary>
+    /// Config técnica propia del tipo de equipo (JSON). NUNCA sale por la API de ejecución, igual que
+    /// Direccion: la dirección donde un PLC recibe el tiempo, o el texto fijo de un cartel.
+    /// </summary>
+    public string? ConfigJson { get; set; }
 
     /// <summary>
     /// Una acción deshabilitada se comporta EXACTAMENTE igual que una inexistente: 404, sin
