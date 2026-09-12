@@ -40,6 +40,55 @@ public class EjecutorPlcTests
         return (new EjecutorPlc(new FactoriaFalsa(d)), d);
     }
 
+    private static Accion EscrituraConTiempo() => new()
+    {
+        Codigo = "abrir_barrera_tiempo", Descripcion = "d", Modo = CteFexit.ModoEscritura, EquipoId = 1,
+        Direccion = "DB1.DBX0.0", TipoDireccion = CteFexit.S7Bit, Valor = 1,
+        UsaEnclavamientos = false, Habilitada = true,
+        ConfigJson = """{"direccionParametro":"DB10.DBW4","tipoDireccionParametro":"S7Word"}""",
+    };
+
+    [Fact]
+    public async Task ElParametroSeEscribeANTESQueElComando()
+    {
+        // Cuando el PLC ve el comando, el tiempo ya tiene que estar cargado (§3.2).
+        var (ejecutor, driver) = Armar();
+        var accion = new AccionAEjecutar(EscrituraConTiempo(), Equipo(), [], new ValoresParametros(null, null, 5));
+
+        var resultado = await ejecutor.EjecutarAsync(accion, default);
+
+        Assert.True(resultado.Exito);
+        Assert.Equal(2, driver.Escrituras.Count);
+        Assert.Equal("DB10.DBW4", driver.Escrituras[0].Direccion);
+        Assert.Equal([0, 5], driver.Escrituras[0].Datos);
+        Assert.Equal("DB1.DBX0.0", driver.Escrituras[1].Direccion);
+    }
+
+    [Fact]
+    public async Task SiFallaElParametro_ElComandoNoSeEscribe()
+    {
+        var driver = new DriverFalso { TiraAlEscribir = new IOException("se cayó") };
+        var (ejecutor, _) = Armar(driver);
+        var accion = new AccionAEjecutar(EscrituraConTiempo(), Equipo(), [], new ValoresParametros(null, null, 5));
+
+        await Assert.ThrowsAsync<EquipoInalcanzableException>(() => ejecutor.EjecutarAsync(accion, default));
+
+        Assert.Empty(driver.Escrituras);
+    }
+
+    [Fact]
+    public async Task ConValorPeroSinConfigDelParametro_EsConfigInvalidaYNoEscribe()
+    {
+        var (ejecutor, driver) = Armar();
+        var fila = EscrituraConTiempo();
+        fila.ConfigJson = null;
+
+        await Assert.ThrowsAsync<ConfigInvalidaException>(() => ejecutor.EjecutarAsync(
+            new AccionAEjecutar(fila, Equipo(), [], new ValoresParametros(null, null, 5)), default));
+
+        Assert.Empty(driver.Escrituras);
+    }
+
     [Fact]
     public void AtiendeElTipoDeEquipoPlc()
     {

@@ -94,6 +94,18 @@ public class EjecutorPlc(IPlcDriverFactory fabrica) : IEjecutorAccion
                 return new ResultadoAccion(false, EvaluadorEnclavamientos.DetalleDelAborto(lecturas), [], []);
         }
 
+        // El parámetro va ANTES que el comando: cuando el PLC ve el comando, el valor ya está (§3.2).
+        // Si esta escritura falla, sube y el comando no se escribe: nada se movió.
+        if (accion.Valores?.Entero is int valorParametro)
+        {
+            var cfg = ConfigPlcParametro.Leer(fila.ConfigJson);
+            var tipoParametro = ParsearTipo(cfg.TipoDireccionParametro);
+            if (!TipoDireccionPlcParser.EsEscribible(tipoParametro))
+                throw new ConfigInvalidaException("El tipo de dirección del parámetro es de sólo lectura.");
+            await driver.WriteAsync(tipoParametro, cfg.DireccionParametro,
+                ConversorValores.ABytes(valorParametro, tipoParametro));
+        }
+
         await driver.WriteAsync(tipo, fila.Direccion, ConversorValores.ABytes(fila.Valor.Value, tipo));
 
         return new ResultadoAccion(true, "Escritura realizada.", [], []);
