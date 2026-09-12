@@ -315,10 +315,36 @@ namespace Infrastructure.Drivers.Huidu.SDK
         /// <returns>成功返回设备对象，失败返回null</returns>
         internal Devices AddDevice(string ip, int port, out string exception)
         {
+            // Agregado en Fexit: el connect síncrono de este constructor no es cancelable ni respeta
+            // ningún timeout propio (queda atado al timeout TCP del sistema operativo, que en Windows
+            // supera los 20 segundos). Sigue existiendo para no romper este overload, pero delega en
+            // el que recibe el TcpClient ya conectado.
+            try
+            {
+                return AddDevice(new TcpClient(ip, port), out exception);
+            }
+            catch (Exception exp)
+            {
+                exception = exp.Message;
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Agregado en Fexit: mismo comportamiento que el overload de arriba, pero recibiendo el
+        /// TcpClient ya conectado en vez de construirlo acá adentro. Existe porque Fexit necesita
+        /// hacer el connect de forma cancelable (con timeout propio y CancellationToken), cosa que el
+        /// constructor de TcpClient no permite — así que el connect lo hace quien llama, con
+        /// TcpClient.ConnectAsync, y acá sólo se registra el dispositivo ya conectado.
+        /// </summary>
+        /// <param name="client">TcpClient ya conectado al dispositivo.</param>
+        /// <param name="exception">异常信息</param>
+        /// <returns>成功返回设备对象，失败返回null</returns>
+        internal Devices AddDevice(TcpClient client, out string exception)
+        {
             exception = "";
             try
             {
-                TcpClient client = new TcpClient(ip, port);
                 Devices device = new Devices(this, client);
                 lock (_deviceLock)
                 {
