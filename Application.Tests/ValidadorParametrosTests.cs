@@ -15,6 +15,8 @@ public class ValidadorParametrosTests
             Opciones: ["verde", "blanco", "rojo", "amarillo"], PorDefecto: "blanco");
     private static readonly DefinicionParametro Minutos =
         new("minutos", CteFexit.ParametroEntero, "minutos", true, Minimo: 1, Maximo: 60);
+    private static readonly DefinicionParametro NotaOpcional =
+        new("nota", CteFexit.ParametroTexto, "nota", false, LargoMaximo: 20);
 
     private static JsonElement Json(string json) => JsonDocument.Parse(json).RootElement;
 
@@ -107,6 +109,17 @@ public class ValidadorParametrosTests
     {
         Assert.Throws<ConfigInvalidaException>(
             () => ValidadorParametros.ValidarDefinicion(ValidadorParametros.LeerDefinicion(json)));
+    }
+
+    [Fact]
+    public void OpcionalSinDefaultYAusente_NoTiraYQuedaEnNull()
+    {
+        // Sin este test la rama "no vino, no es requerido, no tiene PorDefecto" del `continue` en
+        // ValidarValores queda sin red: si mañana empezara a exigir el parámetro o a tirar, la
+        // suite seguiría verde.
+        var v = ValidadorParametros.ValidarValores([NotaOpcional], Json("{}"));
+
+        Assert.Null(v.Texto);
     }
 
     [Fact]
