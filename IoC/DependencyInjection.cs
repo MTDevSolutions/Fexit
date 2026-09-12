@@ -4,6 +4,7 @@ using Application.Settings;
 using Infrastructure.Data;
 using Infrastructure.Data.Repositorios;
 using Infrastructure.Drivers;
+using Infrastructure.Drivers.Huidu;
 using Infrastructure.Ejecutores;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -43,6 +44,11 @@ public static class DependencyInjection
         // IEnumerable<IEjecutorAccion> y elige por TipoEquipo. Sumar un EjecutorMqtt es una línea
         // igual a ésta.
         services.AddScoped<IEjecutorAccion, EjecutorPlc>();
+
+        // Cartel: sin estado propio entre pedidos (conecta, manda, espera confirmación y cierra en
+        // cada llamada), así que el transporte puede ser singleton igual que la factory de PLC.
+        services.AddScoped<IEjecutorAccion, EjecutorCartel>();
+        services.AddSingleton<ITransporteCartel, TransporteCartelHuidu>();
 
         services.AddScoped<IServicioAcciones, ServicioAcciones>();
 
