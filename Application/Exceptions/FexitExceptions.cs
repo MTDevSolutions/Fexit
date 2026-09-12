@@ -27,3 +27,9 @@ public class EquipoInalcanzableException(Exception? inner = null)
 
 public class ConfigInvalidaException(string mensaje, Exception? inner = null)
     : Exception(mensaje, inner);
+
+/// <summary>
+/// Los parámetros del pedido no cumplen la definición de la acción. Siempre 400: quien se equivocó
+/// es quien pidió. El mensaje nombra la etiqueta y el límite, nunca nada del equipo.
+/// </summary>
+public class ParametrosInvalidosException(string mensaje) : Exception(mensaje);

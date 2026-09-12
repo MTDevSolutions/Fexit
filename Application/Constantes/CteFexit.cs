@@ -7,6 +7,13 @@ public static class CteFexit
     public const string ModoLectura = "lectura";
     public const string ModoEscritura = "escritura";
 
+    // Tipos de parámetro de una acción (spec 2026-09-12 §2.1). A lo sumo uno de cada tipo por
+    // acción: es lo que deja fija la herramienta del modelo del lado de Dixit.
+    public const string ParametroTexto = "texto";
+    public const string ParametroOpcion = "opcion";
+    public const string ParametroEntero = "entero";
+    public static readonly string[] TiposParametro = [ParametroTexto, ParametroOpcion, ParametroEntero];
+
     // Tipo de equipo: por esto switchea la factory de ejecutores, NO por protocolo (§10.9), para que
     // un sensor IoT sea una clase nueva y no un rediseño.
     public const string TipoEquipoPlc = "plc";
