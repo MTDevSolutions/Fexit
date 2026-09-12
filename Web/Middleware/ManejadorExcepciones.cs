@@ -34,6 +34,12 @@ public class ManejadorExcepciones(RequestDelegate siguiente, ILogger<ManejadorEx
             logger.LogWarning(ex, "No se pudo comunicar con el equipo. Ruta={Ruta}", ctx.Request.Path);
             await ResponderAsync(ctx, StatusCodes.Status502BadGateway, ex.Message);
         }
+        catch (ParametrosInvalidosException ex)
+        {
+            // Siempre 400: el que se equivocó es el que pidió. Dixit lo cierra como fallo
+            // definitivo. El mensaje nombra la etiqueta y el límite, nunca el equipo.
+            await ResponderAsync(ctx, StatusCodes.Status400BadRequest, ex.Message);
+        }
         catch (ConfigInvalidaException ex)
         {
             // Misma excepción, dos significados según de dónde venga. En /catalogo el que se equivocó

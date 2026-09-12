@@ -8,4 +8,5 @@ namespace Application.Dtos;
 /// importante, para que no pueda: los enclavamientos que evalúa son los del equipo (§4.2), no una
 /// lista propia de la acción, y pasárselos ya resueltos hace que no haya otra opción.
 /// </summary>
-public record AccionAEjecutar(Accion Accion, Equipo Equipo, IReadOnlyList<Enclavamiento> Enclavamientos);
+public record AccionAEjecutar(
+    Accion Accion, Equipo Equipo, IReadOnlyList<Enclavamiento> Enclavamientos, ValoresParametros? Valores = null);

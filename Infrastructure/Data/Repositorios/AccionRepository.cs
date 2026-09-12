@@ -1,5 +1,6 @@
 using Application.Dtos;
 using Application.Interfaces;
+using Application.Services;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,12 +8,18 @@ namespace Infrastructure.Data.Repositorios;
 
 public class AccionRepository(FexitDbContext ctx) : IAccionRepository
 {
-    public async Task<IReadOnlyList<AccionRemotaDto>> ListarAsync(CancellationToken ct) =>
-        await ctx.Acciones.AsNoTracking()
+    public async Task<IReadOnlyList<AccionRemotaDto>> ListarAsync(CancellationToken ct)
+    {
+        var filas = await ctx.Acciones.AsNoTracking()
             .Where(a => a.Habilitada)
             .OrderBy(a => a.Codigo)
-            .Select(a => new AccionRemotaDto(a.Codigo, a.Descripcion, a.Modo))
+            .Select(a => new { a.Codigo, a.Descripcion, a.Modo, a.DefinicionParametrosJson })
             .ToListAsync(ct);
+
+        // En memoria: la definición es JSON. ConfigJson ni se lee: no hay forma de que se cuele.
+        return filas.Select(a => new AccionRemotaDto(a.Codigo, a.Descripcion, a.Modo,
+            ValidadorParametros.LeerDefinicion(a.DefinicionParametrosJson))).ToList();
+    }
 
     public async Task<AccionAEjecutar?> BuscarPorCodigoAsync(string codigo, CancellationToken ct)
     {

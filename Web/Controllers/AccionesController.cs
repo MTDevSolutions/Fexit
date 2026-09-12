@@ -30,5 +30,5 @@ public class AccionesController(IAccionRepository repository, IServicioAcciones 
     [HttpPost("{codigo}/ejecutar")]
     public async Task<ActionResult<ResultadoAccion>> Ejecutar(
         string codigo, [FromBody] EjecutarAccionRequest request, CancellationToken ct) =>
-        Ok(await servicio.EjecutarAsync(codigo, request.ModoEsperado, ct));
+        Ok(await servicio.EjecutarAsync(codigo, request.ModoEsperado, request.Parametros, ct));
 }

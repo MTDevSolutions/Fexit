@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Application.Constantes;
 using Application.Dtos;
 using Application.Exceptions;
@@ -26,11 +27,13 @@ public class ServicioAccionesTests
     private sealed class EjecutorFalso(string tipoEquipo, ResultadoAccion? resultado = null) : IEjecutorAccion
     {
         public bool Ejecuto { get; private set; }
+        public AccionAEjecutar? Recibida { get; private set; }
         public string TipoEquipo => tipoEquipo;
 
         public Task<ResultadoAccion> EjecutarAsync(AccionAEjecutar accion, CancellationToken ct)
         {
             Ejecuto = true;
+            Recibida = accion;
             return Task.FromResult(resultado ?? new ResultadoAccion(true, "Escritura realizada.", [], []));
         }
     }
@@ -41,12 +44,13 @@ public class ServicioAccionesTests
         Protocolo = CteFexit.ProtocoloSiemensS7, Rack = 0, Slot = 1,
     };
 
-    private static AccionAEjecutar Accion(string modo, string tipoEquipo = CteFexit.TipoEquipoPlc) =>
+    private static AccionAEjecutar Accion(
+        string modo, string tipoEquipo = CteFexit.TipoEquipoPlc, string? definicion = null) =>
         new(new Accion
         {
             Codigo = "abrir_barrera", Descripcion = "d", Modo = modo, EquipoId = 1,
             Direccion = "DB1.DBX0.0", TipoDireccion = CteFexit.S7Bit, Valor = 1,
-            UsaEnclavamientos = false, Habilitada = true,
+            UsaEnclavamientos = false, Habilitada = true, DefinicionParametrosJson = definicion,
         }, Equipo(tipoEquipo), []);
 
     [Fact]
@@ -161,5 +165,30 @@ public class ServicioAccionesTests
 
         Assert.False(resultado.Exito);
         Assert.Equal("Precondición no cumplida: Portón.", resultado.Detalle);
+    }
+
+    [Fact]
+    public async Task LosValoresValidadosLleganAlEjecutor()
+    {
+        var ejecutor = new EjecutorFalso(CteFexit.TipoEquipoPlc);
+        var def = """[{"nombre":"minutos","tipo":"entero","etiqueta":"minutos","requerido":true,"minimo":1,"maximo":60}]""";
+        var servicio = new ServicioAcciones(new RepoFalso(Accion(CteFexit.ModoEscritura, definicion: def)), [ejecutor]);
+
+        await servicio.EjecutarAsync("abrir_barrera", CteFexit.ModoEscritura,
+            JsonDocument.Parse("""{"minutos":5}""").RootElement, default);
+
+        Assert.Equal(5, ejecutor.Recibida!.Valores!.Entero);
+    }
+
+    [Fact]
+    public async Task ParametrosInvalidos_NoLleganAlEjecutor()
+    {
+        var ejecutor = new EjecutorFalso(CteFexit.TipoEquipoPlc);
+        var servicio = new ServicioAcciones(new RepoFalso(Accion(CteFexit.ModoEscritura)), [ejecutor]);
+
+        await Assert.ThrowsAsync<ParametrosInvalidosException>(() => servicio.EjecutarAsync("abrir_barrera",
+            CteFexit.ModoEscritura, JsonDocument.Parse("""{"minutos":5}""").RootElement, default));
+
+        Assert.False(ejecutor.Ejecuto);
     }
 }

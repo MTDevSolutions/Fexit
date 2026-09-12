@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Application.Dtos;
 
 /// <summary>
@@ -9,14 +11,17 @@ namespace Application.Dtos;
 /// DTO no tenga esas propiedades es lo que hace imposible que se filtren, mejor que acordarse de no
 /// mapearlas.
 /// </summary>
-public record AccionRemotaDto(string Codigo, string Descripcion, string Modo);
+public record AccionRemotaDto(string Codigo, string Descripcion, string Modo, List<DefinicionParametro> Parametros);
 
 /// <summary>
 /// Cuerpo del pedido de ejecución. Lo único que viaja además del código, y no describe la acción:
 /// la verifica. Fexit contesta 409 si ese código no es de ese modo en su catálogo, que es lo que
 /// impide que una fila mal cargada en Dixit como lectura termine ejecutando una escritura (§5).
+///
+/// Parametros: los valores del pedido (spec 2026-09-12 §2.2), validados SIEMPRE contra la
+/// definición de este lado.
 /// </summary>
-public record EjecutarAccionRequest(string ModoEsperado);
+public record EjecutarAccionRequest(string ModoEsperado, JsonElement? Parametros = null);
 
 /// <summary>
 /// Resultado de ejecutar una acción. Columnas y Filas calcan la forma que Dixit ya usa para el SQL,

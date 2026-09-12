@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Application.Dtos;
 using Application.Interfaces;
 
@@ -9,6 +10,7 @@ namespace Application.Tests;
 /// </summary>
 public sealed class ServicioAccionesNoUsado : IServicioAcciones
 {
-    public Task<ResultadoAccion> EjecutarAsync(string codigo, string modoEsperado, CancellationToken ct) =>
+    public Task<ResultadoAccion> EjecutarAsync(
+        string codigo, string modoEsperado, JsonElement? parametros, CancellationToken ct = default) =>
         throw new NotSupportedException("Este test no ejecuta acciones.");
 }

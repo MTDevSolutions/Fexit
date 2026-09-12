@@ -130,6 +130,26 @@ public class CatalogoTests
     }
 
     [Fact]
+    public async Task ElCatalogoPublicaLosParametrosPeroNuncaLaConfig()
+    {
+        using var prueba = new DbDePrueba();
+        var equipoId = SembrarEquipo(prueba);
+        using (var ctx = prueba.CrearContext())
+        {
+            var accion = NuevaAccion("abrir_barrera_tiempo", equipoId, CteFexit.ModoEscritura);
+            accion.DefinicionParametrosJson = """[{"nombre":"minutos","tipo":"entero","etiqueta":"minutos","requerido":true,"minimo":1,"maximo":60}]""";
+            accion.ConfigJson = """{"direccionParametro":"DB10.DBW4","tipoDireccionParametro":"S7Word"}""";
+            ctx.Acciones.Add(accion);
+            ctx.SaveChanges();
+        }
+
+        var fila = Assert.Single(Datos(await NuevoController(prueba).Listar(default)));
+
+        Assert.Equal("minutos", Assert.Single(fila.Parametros).Nombre);
+        Assert.DoesNotContain("DB10", System.Text.Json.JsonSerializer.Serialize(fila));
+    }
+
+    [Fact]
     public async Task BuscarUnCodigoQueNoExiste_DevuelveNull()
     {
         using var prueba = new DbDePrueba();

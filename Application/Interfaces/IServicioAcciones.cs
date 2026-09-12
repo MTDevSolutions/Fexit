@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Application.Dtos;
 
 namespace Application.Interfaces;
@@ -8,5 +9,6 @@ namespace Application.Interfaces;
 /// </summary>
 public interface IServicioAcciones
 {
-    Task<ResultadoAccion> EjecutarAsync(string codigo, string modoEsperado, CancellationToken ct);
+    Task<ResultadoAccion> EjecutarAsync(
+        string codigo, string modoEsperado, JsonElement? parametros, CancellationToken ct = default);
 }

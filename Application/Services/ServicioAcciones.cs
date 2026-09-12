@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Application.Constantes;
 using Application.Dtos;
 using Application.Exceptions;
@@ -13,7 +14,8 @@ namespace Application.Services;
 public class ServicioAcciones(IAccionRepository repositorio, IEnumerable<IEjecutorAccion> ejecutores)
     : IServicioAcciones
 {
-    public async Task<ResultadoAccion> EjecutarAsync(string codigo, string modoEsperado, CancellationToken ct)
+    public async Task<ResultadoAccion> EjecutarAsync(
+        string codigo, string modoEsperado, JsonElement? parametros, CancellationToken ct = default)
     {
         // Trim y no ToLower: los códigos son identificadores, no texto libre. Un espacio pegado en la
         // carga del catálogo de Dixit daría un 404 incomprensible, y esto es barato.
@@ -26,11 +28,16 @@ public class ServicioAcciones(IAccionRepository repositorio, IEnumerable<IEjecut
         if (accion.Accion.Modo != modoEsperado || !CteFexit.EsModoValido(modoEsperado))
             throw new ModoNoCoincideException();
 
+        // Después del modo y antes del ejecutor: un pedido con parámetros inválidos no toca el
+        // equipo. La definición es la de ESTE lado; la copia de Dixit puede estar vieja (§4.1).
+        var defs = ValidadorParametros.LeerDefinicion(accion.Accion.DefinicionParametrosJson);
+        var valores = ValidadorParametros.ValidarValores(defs, parametros);
+
         var ejecutor = ejecutores.FirstOrDefault(e => e.TipoEquipo == accion.Equipo.TipoEquipo)
             // El CHECK de la base limita los tipos, así que esto es una fila cargada contra una BD
             // vieja. Config, no red: definitivo, sin reintento.
             ?? throw new ConfigInvalidaException("No hay ejecutor para el tipo de equipo configurado.");
 
-        return await ejecutor.EjecutarAsync(accion, ct);
+        return await ejecutor.EjecutarAsync(accion with { Valores = valores }, ct);
     }
 }

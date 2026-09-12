@@ -58,6 +58,15 @@ public class ManejadorExcepcionesTests
     }
 
     [Fact]
+    public async Task ParametrosInvalidos_Da400ConElMensaje()
+    {
+        var (status, cuerpo) = await Correr(new ParametrosInvalidosException("Falta el parámetro 'minutos'."));
+
+        Assert.Equal(StatusCodes.Status400BadRequest, status);
+        Assert.Contains("minutos", cuerpo);
+    }
+
+    [Fact]
     public async Task ConfigInvalida_Da500()
     {
         var (status, _) = await Correr(new ConfigInvalidaException("La acción de escritura está incompleta."));
