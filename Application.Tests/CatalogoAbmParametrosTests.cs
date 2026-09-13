@@ -87,6 +87,48 @@ public class CatalogoAbmParametrosTests
         await Assert.ThrowsAsync<ConfigInvalidaException>(() => Controller(p).CrearAccion(req, default));
     }
 
+    private static string DefEntero(int minimo, int maximo) =>
+        $$"""[{"nombre":"minutos","tipo":"entero","etiqueta":"minutos","requerido":true,"minimo":{{minimo}},"maximo":{{maximo}}}]""";
+
+    private static AccionRequest AccionConParametroPlc(long equipoId, string def, string tipoDireccionParametro) =>
+        new("abrir_barrera_tiempo", "d", CteFexit.ModoEscritura, equipoId,
+            "DB1.DBX0.0", CteFexit.S7Bit, 1, false, true, def,
+            $$"""{"direccionParametro":"DB10.DBW4","tipoDireccionParametro":"{{tipoDireccionParametro}}"}""");
+
+    // I2: el ABM no puede aceptar un rango que la ejecución no pueda escribir (spec de la revisión
+    // final). El criterio es el mismo que usa ConversorValores.ABytes según el ancho del tipo.
+    [Fact]
+    public async Task UnMaximoQueNoEntraEnElAnchoDeLaDireccion_SeRechaza()
+    {
+        using var p = new DbDePrueba();
+        var req = AccionConParametroPlc(Plc(p), DefEntero(0, 100000), CteFexit.S7Word);
+        await Assert.ThrowsAsync<ConfigInvalidaException>(() => Controller(p).CrearAccion(req, default));
+    }
+
+    [Fact]
+    public async Task UnMaximoQueEntraJustoEnElAnchoDeLaDireccion_SeAcepta()
+    {
+        using var p = new DbDePrueba();
+        var req = AccionConParametroPlc(Plc(p), DefEntero(0, 65535), CteFexit.S7Word);
+        await Controller(p).CrearAccion(req, default);
+    }
+
+    [Fact]
+    public async Task UnMinimoNegativo_SeRechaza()
+    {
+        using var p = new DbDePrueba();
+        var req = AccionConParametroPlc(Plc(p), DefEntero(-1, 60), CteFexit.S7Word);
+        await Assert.ThrowsAsync<ConfigInvalidaException>(() => Controller(p).CrearAccion(req, default));
+    }
+
+    [Fact]
+    public async Task UnParametroEnteroSobreUnBit_SeRechaza()
+    {
+        using var p = new DbDePrueba();
+        var req = AccionConParametroPlc(Plc(p), DefEntero(0, 1), CteFexit.S7Bit);
+        await Assert.ThrowsAsync<ConfigInvalidaException>(() => Controller(p).CrearAccion(req, default));
+    }
+
     [Fact]
     public async Task UnPlcNoAdmiteParametroDeTexto()
     {

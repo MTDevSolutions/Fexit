@@ -66,12 +66,52 @@ public class ValidadorParametrosTests
     }
 
     [Fact]
-    public void LosCaracteresDeControlSeSacan()
+    public void LosCaracteresDeControlSeReemplazanPorEspacio()
     {
-        // El escape del BEL llega tal cual al parser de JSON, que lo convierte en el caracter.
+        // El escape del BEL llega tal cual al parser de JSON, que lo convierte en el caracter. Un
+        // reemplazo por espacio (y no un borrado) evita que dos palabras separadas por un caracter de
+        // control se peguen.
         var v = ValidadorParametros.ValidarValores([Texto], Json("{\"texto\":\"Ho\\u0007la\"}"));
 
+        Assert.Equal("Ho la", v.Texto);
+    }
+
+    [Fact]
+    public void UnSaltoDeLineaNoPegaLasPalabras()
+    {
+        var d = Texto with { LargoMaximo = 30 };
+        var v = ValidadorParametros.ValidarValores([d], Json("{\"texto\":\"Hola\\nbienvenido\"}"));
+
+        Assert.Equal("Hola bienvenido", v.Texto);
+    }
+
+    [Fact]
+    public void UnIntentoDeEvasionConSaltoDeLineaQuedaLegible()
+    {
+        var d = Texto with { LargoMaximo = 10 };
+        var v = ValidadorParametros.ValidarValores([d], Json("{\"texto\":\"pu\\nto\"}"));
+
+        Assert.Equal("pu to", v.Texto);
+    }
+
+    [Fact]
+    public void ElTrimYElTopeDeLargoSeAplicanDespuesDeReemplazarLosDeControl()
+    {
+        // "Hola" con espacios de control al borde: el reemplazo no debe dejar el trim afuera, ni
+        // el tope de largo evaluado sobre el texto sin colapsar.
+        var d = Texto with { LargoMaximo = 5 };
+        var v = ValidadorParametros.ValidarValores([d], Json("{\"texto\":\"\\u0007Hola\\u0007\"}"));
+
         Assert.Equal("Hola", v.Texto);
+    }
+
+    [Fact]
+    public void AcentosYEnieSobrevivenElCaminoDelParametro()
+    {
+        var d = Texto with { LargoMaximo = 40 };
+        var v = ValidadorParametros.ValidarValores([d], Json("{\"texto\":\"Bienvenido al señor Pérez\"}"));
+
+        Assert.Equal("Bienvenido al señor Pérez", v.Texto);
     }
 
     [Theory]

@@ -1,13 +1,20 @@
 using Application.Dtos;
+using Application.Exceptions;
 using Application.Interfaces;
 using Application.Services;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Infrastructure.Data.Repositorios;
 
-public class AccionRepository(FexitDbContext ctx) : IAccionRepository
+// El logger es opcional (default null → NullLogger) para no obligar a cada test existente que
+// construye este repositorio a mano a pasar uno: la DI de producción siempre inyecta el real.
+public class AccionRepository(FexitDbContext ctx, ILogger<AccionRepository>? logger = null) : IAccionRepository
 {
+    private readonly ILogger<AccionRepository> _logger = logger ?? NullLogger<AccionRepository>.Instance;
+
     public async Task<IReadOnlyList<AccionRemotaDto>> ListarAsync(CancellationToken ct)
     {
         var filas = await ctx.Acciones.AsNoTracking()
@@ -17,8 +24,24 @@ public class AccionRepository(FexitDbContext ctx) : IAccionRepository
             .ToListAsync(ct);
 
         // En memoria: la definición es JSON. ConfigJson ni se lee: no hay forma de que se cuele.
-        return filas.Select(a => new AccionRemotaDto(a.Codigo, a.Descripcion, a.Modo,
-            ValidadorParametros.LeerDefinicion(a.DefinicionParametrosJson))).ToList();
+        // Una fila con la definición rota (cargada por SQL, no por el ABM) no puede tumbar el
+        // catálogo entero: se degrada a "sin parámetros" acá, en el LISTADO. La EJECUCIÓN lee la
+        // definición por su propio camino (AccionAEjecutar) y ahí sigue fallando fuerte a propósito:
+        // un pedido con parámetros contra una definición ilegible no se puede ejecutar a ciegas.
+        return filas.Select(a => new AccionRemotaDto(a.Codigo, a.Descripcion, a.Modo, LeerDefinicionTolerante(a.Codigo, a.DefinicionParametrosJson))).ToList();
+    }
+
+    private List<DefinicionParametro> LeerDefinicionTolerante(string codigo, string? json)
+    {
+        try
+        {
+            return ValidadorParametros.LeerDefinicion(json);
+        }
+        catch (ConfigInvalidaException ex)
+        {
+            _logger.LogWarning(ex, "La definición de parámetros de la acción '{Codigo}' no es un JSON válido; se publica sin parámetros.", codigo);
+            return [];
+        }
     }
 
     public async Task<AccionAEjecutar?> BuscarPorCodigoAsync(string codigo, CancellationToken ct)

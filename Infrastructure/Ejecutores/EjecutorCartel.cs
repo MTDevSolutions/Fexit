@@ -13,6 +13,25 @@ namespace Infrastructure.Ejecutores;
 /// </summary>
 public class EjecutorCartel(ITransporteCartel transporte) : IEjecutorAccion
 {
+    // Se apoya en CteFexit.ColoresCartel, que es contra lo que valida el ABM: si mañana se agrega un
+    // color a esa lista sin agregarlo acá, falta la entrada y ModoDeColor tira en vez de pintar de
+    // blanco en silencio.
+    private static readonly Dictionary<string, ModoMensajeCartel> _modoPorColor = new()
+    {
+        [CteFexit.ColorVerde] = ModoMensajeCartel.Verde,
+        [CteFexit.ColorRojo] = ModoMensajeCartel.Rojo,
+        [CteFexit.ColorAmarillo] = ModoMensajeCartel.Amarillo,
+        [CteFexit.ColorBlanco] = ModoMensajeCartel.Blanco,
+    };
+
+    static EjecutorCartel()
+    {
+        var sinMapear = CteFexit.ColoresCartel.Where(c => !_modoPorColor.ContainsKey(c)).ToList();
+        if (sinMapear.Count > 0)
+            throw new InvalidOperationException(
+                $"Faltan mapear a un modo del cartel los colores: {string.Join(", ", sinMapear)}.");
+    }
+
     public string TipoEquipo => CteFexit.TipoEquipoCartel;
 
     public async Task<ResultadoAccion> EjecutarAsync(AccionAEjecutar accion, CancellationToken ct)
@@ -41,7 +60,7 @@ public class EjecutorCartel(ITransporteCartel transporte) : IEjecutorAccion
     {
         if (accion.Valores?.Texto is { } texto)
         {
-            var color = accion.Valores.Opcion ?? "blanco";
+            var color = accion.Valores.Opcion ?? CteFexit.ColorBlanco;
             return (new MensajeCartel(texto, ModoDeColor(color)), $"Se mostró «{texto}» en {color}.");
         }
 
@@ -55,11 +74,8 @@ public class EjecutorCartel(ITransporteCartel transporte) : IEjecutorAccion
         };
     }
 
-    private static ModoMensajeCartel ModoDeColor(string color) => color switch
-    {
-        "verde" => ModoMensajeCartel.Verde,
-        "rojo" => ModoMensajeCartel.Rojo,
-        "amarillo" => ModoMensajeCartel.Amarillo,
-        _ => ModoMensajeCartel.Blanco,
-    };
+    private static ModoMensajeCartel ModoDeColor(string color) =>
+        _modoPorColor.TryGetValue(color, out var modo)
+            ? modo
+            : throw new InvalidOperationException($"Color de cartel sin mapear: '{color}'.");
 }

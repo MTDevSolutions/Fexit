@@ -28,7 +28,11 @@ public static class CteFexit
     public const string ProtocoloHuiduSdk = "HuiduSdk";
 
     // Cartel: colores del texto, y los modos de una acción fija.
-    public static readonly string[] ColoresCartel = ["verde", "blanco", "rojo", "amarillo"];
+    public const string ColorVerde = "verde";
+    public const string ColorBlanco = "blanco";
+    public const string ColorRojo = "rojo";
+    public const string ColorAmarillo = "amarillo";
+    public static readonly string[] ColoresCartel = [ColorVerde, ColorBlanco, ColorRojo, ColorAmarillo];
     public const string CartelModoTexto = "texto";
     public const string CartelModoLogo = "logo";
     public const string CartelModoPantallaVerde = "pantalla_verde";

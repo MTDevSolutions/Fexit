@@ -21,8 +21,14 @@ public class TransporteCartelHuidu(IOptions<FexitSettings> settings) : ITranspor
 {
     public async Task EnviarAsync(Equipo equipo, string xml, CancellationToken ct)
     {
-        var timeout = TimeSpan.FromMilliseconds(settings.Value.TimeoutEquipoMs);
         using var manager = new HDCommunicationManager();
+
+        // Un solo presupuesto para TODO el pedido, no uno por espera: con tres esperas en secuencia
+        // (conectar, saludo, respuesta) usando cada una el TimeoutEquipoMs completo, el peor caso era
+        // el TRIPLE del configurado — más que el timeout HTTP que tiene Dixit del otro lado. Con un
+        // único deadline linkeado al ct del caller, el tope total es TimeoutEquipoMs.
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        deadline.CancelAfter(settings.Value.TimeoutEquipoMs);
 
         var saludo = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var respuesta = new TaskCompletionSource<ResolveInfo>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -40,15 +46,22 @@ public class TransporteCartelHuidu(IOptions<FexitSettings> settings) : ITranspor
         // TimeoutEquipoMs ni el ct del pedido lo corten. Por eso el connect se hace acá, cancelable, y
         // se le pasa al SDK ya conectado.
         var cliente = new TcpClient();
-        using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        connectCts.CancelAfter(timeout);
         try
         {
-            await cliente.ConnectAsync(equipo.Ip, equipo.Puerto, connectCts.Token);
+            await cliente.ConnectAsync(equipo.Ip, equipo.Puerto, deadline.Token);
+        }
+        catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            // El manager todavía no tomó este cliente: si no lo cerramos acá, nadie más lo hace. El
+            // paso donde venció va en InnerException (la excepción original), nunca en el mensaje que
+            // sube: ese mensaje puede traer la IP.
+            cliente.Dispose();
+            throw new IOException("El cartel no aceptó la conexión dentro del tiempo esperado.", ex);
         }
         catch
         {
-            // El manager todavía no tomó este cliente: si no lo cerramos acá, nadie más lo hace.
+            // Cancelación real del caller, o cualquier otro fallo (p. ej. de socket): se propaga tal
+            // cual, como antes.
             cliente.Dispose();
             throw;
         }
@@ -62,9 +75,26 @@ public class TransporteCartelHuidu(IOptions<FexitSettings> settings) : ITranspor
             throw new IOException($"No se pudo conectar al cartel: {error}");
         }
 
-        await saludo.Task.WaitAsync(timeout, ct);
+        try
+        {
+            await saludo.Task.WaitAsync(deadline.Token);
+        }
+        catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            throw new IOException("El cartel no saludó dentro del tiempo esperado.", ex);
+        }
+
         dispositivo.SendFromXml(xml);
-        var info = await respuesta.Task.WaitAsync(timeout, ct);
+
+        ResolveInfo info;
+        try
+        {
+            info = await respuesta.Task.WaitAsync(deadline.Token);
+        }
+        catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            throw new IOException("El cartel no confirmó el programa dentro del tiempo esperado.", ex);
+        }
 
         if (info.errorCode != ErrorCode.kSuccess)
             throw new IOException($"El cartel rechazó el programa: {info.errorCode}");

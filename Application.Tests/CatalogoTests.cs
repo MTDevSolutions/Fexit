@@ -100,6 +100,32 @@ public class CatalogoTests
     }
 
     [Fact]
+    public async Task UnaDefinicionRotaNoTumbaElListado()
+    {
+        // M2: una fila cargada por SQL (no por el ABM, que la hubiera rechazado) con la definición de
+        // parámetros ilegible se degrada a "sin parámetros" en el LISTADO, no tumba el catálogo
+        // entero. La ejecución sigue fallando fuerte por su propio camino: eso no se toca acá.
+        using var prueba = new DbDePrueba();
+        var equipoId = SembrarEquipo(prueba);
+        using (var ctx = prueba.CrearContext())
+        {
+            var rota = NuevaAccion("rota", equipoId, CteFexit.ModoLectura);
+            rota.DefinicionParametrosJson = "esto no es json";
+            var sana = NuevaAccion("sana", equipoId, CteFexit.ModoLectura);
+            ctx.Acciones.Add(rota);
+            ctx.Acciones.Add(sana);
+            ctx.SaveChanges();
+        }
+
+        var resultado = await NuevoController(prueba).Listar(default);
+
+        var filas = Datos(resultado);
+        Assert.Equal(2, filas.Count);
+        Assert.Empty(filas.Single(f => f.Codigo == "rota").Parametros);
+        Assert.Empty(filas.Single(f => f.Codigo == "sana").Parametros);
+    }
+
+    [Fact]
     public async Task CatalogoVacio_DevuelveListaVaciaYNoNull()
     {
         // Es el estado de una instalación recién puesta, y Dixit tiene que poder pintar "todavía no

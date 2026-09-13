@@ -223,8 +223,33 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
 
         // El usuario manda sólo el valor; dónde se escribe lo dice esta config privada (§3.2).
         var cfg = ConfigPlcParametro.Leer(req.ConfigJson);
-        if (!TipoDireccionPlcParser.EsEscribible(TipoDireccionPlcParser.Parsear(cfg.TipoDireccionParametro)))
+        var tipoParametro = TipoDireccionPlcParser.Parsear(cfg.TipoDireccionParametro);
+        if (!TipoDireccionPlcParser.EsEscribible(tipoParametro))
             throw new ConfigInvalidaException("El tipo de dirección del parámetro es de sólo lectura.");
+
+        ValidarRangoEntero(defs[0], tipoParametro);
+    }
+
+    /// <summary>
+    /// El ABM no puede aceptar un rango que la ejecución no pueda escribir: si lo hiciera, Dixit
+    /// daría por bueno un valor "dentro de rango" que <see cref="ConversorValores.ABytes"/> recién
+    /// rechaza en plena ejecución, con un mensaje que además culpa a la dirección y no al valor.
+    /// Mismo criterio de ancho que usa esa conversión, para que nunca diverjan.
+    /// </summary>
+    private static void ValidarRangoEntero(DefinicionParametro def, TipoDireccionPlc tipoParametro)
+    {
+        if (tipoParametro is TipoDireccionPlc.Coil or TipoDireccionPlc.S7Bit)
+            throw new ConfigInvalidaException(
+                "Un parámetro entero no puede escribir en un bit: sólo admite 0 o 1, no un rango.");
+
+        if (def.Minimo < 0)
+            throw new ConfigInvalidaException("El mínimo del parámetro no puede ser negativo.");
+
+        var ancho = TipoDireccionPlcParser.AnchoEnBytes(tipoParametro);
+        var tope = ancho == 1 ? 0xFF : ancho == 2 ? 0xFFFF : int.MaxValue;
+        if (def.Maximo > tope)
+            throw new ConfigInvalidaException(
+                $"El máximo del parámetro ({def.Maximo}) no entra en {ancho} byte(s) para {tipoParametro}: el tope es {tope}.");
     }
 
     private static void ValidarEscrituraCartel(AccionRequest req, List<DefinicionParametro> defs)

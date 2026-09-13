@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Application.Constantes;
 using Application.Dtos;
 using Application.Exceptions;
@@ -113,13 +114,22 @@ public static class ValidadorParametros
             throw new ParametrosInvalidosException($"'{d.Etiqueta}' tiene que ser un texto.");
 
         // Los de control (BEL, saltos raros) no se muestran bien en un panel y pueden romper el XML.
-        var limpio = new string(valor.GetString()!.Where(c => !char.IsControl(c)).ToArray()).Trim();
+        // Se reemplazan por un espacio, no se borran: borrarlos pega las palabras ("Hola\nbienvenido"
+        // → "Holabienvenido") y, de paso, esconde un intento de evasión tipo "pu\nto" en vez de
+        // mostrarlo como "pu to". El trim y el tope de largo se aplican DESPUÉS, sobre el resultado ya
+        // colapsado.
+        var sinControl = new string(valor.GetString()!.Select(c => char.IsControl(c) ? ' ' : c).ToArray());
+        var limpio = ColapsarEspacios(sinControl).Trim();
         if (limpio.Length == 0)
             throw new ParametrosInvalidosException($"'{d.Etiqueta}' está vacío.");
         if (limpio.Length > d.LargoMaximo)
             throw new ParametrosInvalidosException($"'{d.Etiqueta}' puede tener hasta {d.LargoMaximo} caracteres.");
         return limpio;
     }
+
+    private static readonly Regex _espaciosRepetidos = new(" {2,}", RegexOptions.Compiled);
+
+    private static string ColapsarEspacios(string s) => _espaciosRepetidos.Replace(s, " ");
 
     private static string ValidarOpcion(DefinicionParametro d, JsonElement valor)
     {
