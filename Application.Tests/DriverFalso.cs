@@ -30,12 +30,22 @@ public sealed class DriverFalso : IPlcDriver
         return this;
     }
 
-    public Task<bool> ConnectAsync(CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Simula el equipo que no rechaza la conexión pero tampoco la acepta: el connect no vuelve nunca
+    /// por su cuenta. Es lo único que reproduce, sin red, el caso que colgaba 21 s (un PLC apagado o
+    /// detrás de un firewall que descarta el SYN); quien tiene que cortarlo es el deadline del
+    /// ejecutor, no el driver.
+    /// </summary>
+    public bool CuelgaAlConectar { get; set; }
+
+    public async Task<bool> ConnectAsync(CancellationToken cancellationToken = default)
     {
         if (TiraAlConectar is not null) throw TiraAlConectar;
+        if (CuelgaAlConectar)
+            await Task.Delay(Timeout.Infinite, cancellationToken);
         IsConnected = true;
         ConectoAlgunaVez = true;
-        return Task.FromResult(true);
+        return true;
     }
 
     public Task DisconnectAsync()

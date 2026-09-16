@@ -3,6 +3,8 @@ using Application.Dtos;
 using Application.Exceptions;
 using Application.Interfaces;
 using Application.Services;
+using Application.Settings;
+using Microsoft.Extensions.Options;
 
 namespace Infrastructure.Ejecutores;
 
@@ -13,7 +15,7 @@ namespace Infrastructure.Ejecutores;
 /// En la escritura, la precondición se evalúa ANTES y aborta sin escribir (§4.5). Nunca hay
 /// escritura parcial: esa garantía existía en Dixit y se muda de lado, no se pierde en la mudanza.
 /// </summary>
-public class EjecutorPlc(IPlcDriverFactory fabrica) : IEjecutorAccion
+public class EjecutorPlc(IPlcDriverFactory fabrica, IOptions<FexitSettings> settings) : IEjecutorAccion
 {
     public string TipoEquipo => CteFexit.TipoEquipoPlc;
 
@@ -21,13 +23,29 @@ public class EjecutorPlc(IPlcDriverFactory fabrica) : IEjecutorAccion
     {
         using var driver = fabrica.Crear(accion.Equipo);
 
+        // Un solo presupuesto para TODO el pedido, igual que TransporteCartelHuidu. Sin esto,
+        // TimeoutEquipoMs sólo alimentaba el ReadTimeout/WriteTimeout del socket YA conectado y nadie
+        // acotaba el connect: contra una IP que no rechaza ni contesta, el pedido tardaba 21 s (el
+        // reintento de SYN del sistema operativo) con el timeout configurado en 3 s, y Dixit cortaba
+        // antes dejando la fila de la cola en "ejecutando" para siempre.
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        deadline.CancelAfter(settings.Value.TimeoutEquipoMs);
+        var ctEquipo = deadline.Token;
+
         try
         {
-            await driver.ConnectAsync(ct);
+            await driver.ConnectAsync(ctEquipo);
 
             return accion.Accion.Modo == CteFexit.ModoLectura
-                ? await LeerAsync(driver, accion, ct)
-                : await EscribirAsync(driver, accion, ct);
+                ? await LeerAsync(driver, accion, ctEquipo)
+                : await EscribirAsync(driver, accion, ctEquipo);
+        }
+        catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            // Venció el presupuesto del equipo, no canceló el caller: para quien pidió la acción es
+            // exactamente lo mismo que un equipo que no responde, y así se cierra en Dixit. La
+            // cancelación real del caller NO entra acá y sigue propagándose tal cual.
+            throw new EquipoInalcanzableException(ex);
         }
         catch (Exception ex) when (ex is FormatException or ArgumentException)
         {

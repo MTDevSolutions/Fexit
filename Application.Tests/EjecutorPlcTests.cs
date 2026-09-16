@@ -1,13 +1,54 @@
+using System.Diagnostics;
 using Application.Constantes;
 using Application.Dtos;
 using Application.Exceptions;
+using Application.Settings;
 using Domain.Entities;
 using Infrastructure.Ejecutores;
+using Microsoft.Extensions.Options;
 
 namespace Application.Tests;
 
 public class EjecutorPlcTests
 {
+    /// <summary>
+    /// El bug medido el 2026-09-16: contra una IP que no rechaza ni contesta, la ejecución tardaba
+    /// 21,15 s (el reintento de SYN del sistema operativo) con TimeoutEquipoMs en 3000. El timeout
+    /// configurado no intervenía en ningún momento: sólo alimentaba el ReadTimeout/WriteTimeout del
+    /// socket YA conectado, y el camino del PLC no tenía ningún deadline propio — a diferencia del
+    /// cartel, que sí lo tiene desde e1a79c2.
+    /// </summary>
+    [Fact]
+    public async Task ElEquipoQueNoContesta_CortaPorElTimeoutConfigurado()
+    {
+        var (ejecutor, _) = Armar(new DriverFalso { CuelgaAlConectar = true }, timeoutMs: 150);
+        var accion = new AccionAEjecutar(Lectura(), Equipo(), [], null);
+
+        var reloj = Stopwatch.StartNew();
+        await Assert.ThrowsAsync<EquipoInalcanzableException>(() => ejecutor.EjecutarAsync(accion, default));
+        reloj.Stop();
+
+        // Holgado a propósito: lo que se verifica es que corta por el presupuesto y no por el timeout
+        // TCP del sistema operativo (21 s), no cuántos milisegundos exactos tardó.
+        Assert.True(reloj.Elapsed < TimeSpan.FromSeconds(5),
+            $"Tenía que cortar por el timeout configurado y tardó {reloj.Elapsed}.");
+    }
+
+    /// <summary>
+    /// El deadline no puede comerse la cancelación real del caller: si Dixit corta, eso NO es un
+    /// equipo inalcanzable y no tiene que traducirse a uno. Mismo criterio que TransporteCartelHuidu.
+    /// </summary>
+    [Fact]
+    public async Task SiCancelaElCaller_SePropagaYNoSeDisfrazaDeEquipoInalcanzable()
+    {
+        var (ejecutor, _) = Armar(new DriverFalso { CuelgaAlConectar = true });
+        var accion = new AccionAEjecutar(Lectura(), Equipo(), [], null);
+        using var cancelaElCaller = new CancellationTokenSource(150);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => ejecutor.EjecutarAsync(accion, cancelaElCaller.Token));
+    }
+
     private static Equipo Equipo() => new()
     {
         Id = 1, Nombre = "bomba3", TipoEquipo = CteFexit.TipoEquipoPlc, Ip = "10.0.0.20",
@@ -34,10 +75,13 @@ public class EjecutorPlcTests
         UsaEnclavamientos = true, Habilitada = true,
     };
 
-    private static (EjecutorPlc Ejecutor, DriverFalso Driver) Armar(DriverFalso? driver = null)
+    // El timeout por defecto es alto a propósito: los tests que no miden el deadline no tienen que
+    // depender de él ni volverse lentos o intermitentes por su culpa.
+    private static (EjecutorPlc Ejecutor, DriverFalso Driver) Armar(DriverFalso? driver = null, int timeoutMs = 60_000)
     {
         var d = driver ?? new DriverFalso();
-        return (new EjecutorPlc(new FactoriaFalsa(d)), d);
+        var settings = Options.Create(new FexitSettings { TimeoutEquipoMs = timeoutMs });
+        return (new EjecutorPlc(new FactoriaFalsa(d), settings), d);
     }
 
     private static Accion EscrituraConTiempo() => new()

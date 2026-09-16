@@ -49,6 +49,21 @@ namespace Infrastructure.Drivers.Siemens
             // Liberar conexión anterior para evitar fuga de recursos en reconexión
             await DisconnectAsync();
 
+            // S7netplus abre el socket de forma bloqueante y NO lo cancela: su propia doc de
+            // OpenAsync(ct) aclara que "the cancellation will not affect opening the socket in any
+            // way". Contra una IP que no rechaza ni contesta (un PLC apagado, un firewall que descarta
+            // el SYN), el connect se cuelga hasta el timeout TCP del sistema operativo — 21 s medidos
+            // en Windows — ignorando el timeout configurado y el ct del pedido. Pasar a OpenAsync no
+            // alcanza, por eso no se usa.
+            // Por eso primero se prueba el TCP con un socket propio, que sí es cancelable. Si el
+            // equipo contesta el SYN, el Open() de la librería conecta enseguida y no se cuelga; si no
+            // contesta, se corta acá, en el tiempo que diga quien llama. Es el mismo criterio que
+            // TransporteCartelHuidu, adaptado a que S7netplus no acepta un socket ya conectado.
+            using (var sonda = new System.Net.Sockets.TcpClient())
+            {
+                await sonda.ConnectAsync(_ip, _port, cancellationToken);
+            }
+
             try
             {
                 return await Task.Run(() =>
