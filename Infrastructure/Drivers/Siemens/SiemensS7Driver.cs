@@ -64,23 +64,31 @@ namespace Infrastructure.Drivers.Siemens
                 await sonda.ConnectAsync(_ip, _port, cancellationToken);
             }
 
+            // Bajo el lock, como la lectura y la escritura: era el único método que asignaba _plc sin
+            // tomarlo, así que una reconexión podía pisar el _plc que otra operación estaba usando.
+            // Se toma DESPUÉS del DisconnectAsync de arriba, que también lo toma: SemaphoreSlim no es
+            // reentrante y tomarlo antes se colgaría a sí mismo.
+            await _lock.WaitAsync(cancellationToken);
             try
             {
-                return await Task.Run(() =>
+                _plc = new Plc(_tipoDeCpu, _ip, _port, (short)_rack, (short)_slot)
                 {
-                    _plc = new Plc(_tipoDeCpu, _ip, _port, (short)_rack, (short)_slot)
-                    {
-                        ReadTimeout = _timeout,
-                        WriteTimeout = _timeout
-                    };
-                    _plc.Open();
-                    return IsConnected;
-                }, cancellationToken);
+                    ReadTimeout = _timeout,
+                    WriteTimeout = _timeout
+                };
+                await Task.Run(() => _plc.Open(), cancellationToken);
+                return IsConnected;
             }
             catch
             {
-                await DisconnectAsync();
+                // Cierre inline y no DisconnectAsync: ya tenemos el lock, y pedirlo de nuevo acá
+                // dentro se colgaría. ForceCloseOnError hace lo mismo sin tomarlo.
+                ForceCloseOnError();
                 throw;
+            }
+            finally
+            {
+                _lock.Release();
             }
         }
 
