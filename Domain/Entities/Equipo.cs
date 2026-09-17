@@ -26,4 +26,5 @@ public class Equipo
     public long ControladorId { get; set; }
     public Controlador? Controlador { get; set; }
 
+    public List<Estado> Estados { get; set; } = [];
 }
