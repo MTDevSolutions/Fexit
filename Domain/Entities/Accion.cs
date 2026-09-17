@@ -18,8 +18,8 @@ public class Accion
     /// <summary>lectura | escritura. Lo que Fexit compara contra el modoEsperado del pedido (§5).</summary>
     public string Modo { get; set; } = default!;
 
-    public long EquipoId { get; set; }
-    public Equipo? Equipo { get; set; }
+    public long ControladorId { get; set; }
+    public Controlador? Controlador { get; set; }
 
     /// <summary>Sólo escritura: dónde escribir. Null en las de lectura, que leen los enclavamientos.</summary>
     public string? Direccion { get; set; }
@@ -31,11 +31,11 @@ public class Accion
     public int? Valor { get; set; }
 
     /// <summary>
-    /// En una escritura: si evalúa los enclavamientos del equipo como precondición antes de escribir.
-    /// El flag gobierna sólo las ESCRITURAS. Una lectura devuelve la tabla de enclavamientos del
-    /// equipo siempre, tenga el flag como esté: una acción de lectura existe justamente para
+    /// En una escritura: si evalúa los enclavamientos del controlador como precondición antes de
+    /// escribir. El flag gobierna sólo las ESCRITURAS. Una lectura devuelve la tabla de enclavamientos
+    /// del controlador siempre, tenga el flag como esté: una acción de lectura existe justamente para
     /// informarlos, y si el flag la vaciara la fila no tendría ningún sentido. Es false, por ejemplo, en una
-    /// escritura sin condiciones (prender un cartel) o en un equipo que todavía no tiene la lista
+    /// escritura sin condiciones (prender un cartel) o en un controlador que todavía no tiene la lista
     /// cargada.
     /// </summary>
     public bool UsaEnclavamientos { get; set; }

@@ -17,8 +17,8 @@ public class AccionConfiguration : IEntityTypeConfiguration<Accion>
                 $"TipoDireccion IS NULL OR TipoDireccion IN ({EnclavamientoConfiguration.Enumerado(CteFexit.TiposDireccion)})");
             // CK_Acciones_EscrituraCompleta se eliminó el 2026-09-12: exigía dirección y valor en
             // TODA escritura, y una escritura de cartel no tiene ninguna de las dos. El CHECK no puede
-            // ver el TipoEquipo del equipo, así que la regla vive en el ABM (según el tipo) y en los
-            // ejecutores, que fallan cerrado con ConfigInvalida si la fila está incompleta.
+            // ver el TipoEquipo del controlador, así que la regla vive en el ABM (según el tipo) y en
+            // los ejecutores, que fallan cerrado con ConfigInvalida si la fila está incompleta.
         });
         b.HasKey(a => a.Id);
         b.Property(a => a.Id).ValueGeneratedOnAdd().HasAnnotation("Sqlite:Autoincrement", true);
@@ -34,8 +34,8 @@ public class AccionConfiguration : IEntityTypeConfiguration<Accion>
         // de esta columna lo dueña C#: la propiedad nace en false y cada alta la setea explícita.
         b.Property(a => a.Habilitada);
 
-        b.HasOne(a => a.Equipo).WithMany()
-            .HasForeignKey(a => a.EquipoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(a => a.Controlador).WithMany()
+            .HasForeignKey(a => a.ControladorId).OnDelete(DeleteBehavior.Restrict);
 
         // El codigo es lo que manda Dixit: único, o "abrir_barrera" podría resolver a dos filas
         // distintas y la ejecución sería no determinista.

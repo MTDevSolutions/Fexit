@@ -11,7 +11,7 @@ namespace Application.Interfaces;
 /// </summary>
 public interface IEjecutorAccion
 {
-    /// <summary>Valor de Equipo.TipoEquipo que este ejecutor atiende.</summary>
+    /// <summary>Valor de Controlador.TipoEquipo que este ejecutor atiende.</summary>
     string TipoEquipo { get; }
 
     Task<ResultadoAccion> EjecutarAsync(AccionAEjecutar accion, CancellationToken ct);

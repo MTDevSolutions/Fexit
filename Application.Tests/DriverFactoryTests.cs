@@ -12,7 +12,7 @@ public class DriverFactoryTests
 {
     private static readonly FexitSettings Settings = new() { TimeoutEquipoMs = 3000 };
 
-    private static Equipo Equipo(string protocolo, string modelo = CteFexit.ModeloS7300) => new()
+    private static Controlador Controlador(string protocolo, string modelo = CteFexit.ModeloS7300) => new()
     {
         Nombre = "equipo", TipoEquipo = CteFexit.TipoEquipoPlc, Ip = "10.0.0.20",
         Puerto = 502, Protocolo = protocolo, Modelo = modelo, Rack = 0, Slot = 1,
@@ -22,7 +22,7 @@ public class DriverFactoryTests
     public void SiemensS7_DaElDriverDeSiemens()
     {
         // Construir el driver NO abre la conexión: se puede probar la factory sin PLC.
-        using var driver = new PlcDriverFactory(Settings).Crear(Equipo(CteFexit.ProtocoloSiemensS7));
+        using var driver = new PlcDriverFactory(Settings).Crear(Controlador(CteFexit.ProtocoloSiemensS7));
 
         Assert.IsType<SiemensS7Driver>(driver);
     }
@@ -30,7 +30,7 @@ public class DriverFactoryTests
     [Fact]
     public void ModbusTcp_DaElDriverDeModbus()
     {
-        using var driver = new PlcDriverFactory(Settings).Crear(Equipo(CteFexit.ProtocoloModbusTcp));
+        using var driver = new PlcDriverFactory(Settings).Crear(Controlador(CteFexit.ProtocoloModbusTcp));
 
         Assert.IsType<ModbusTcpDriver>(driver);
     }
@@ -38,7 +38,7 @@ public class DriverFactoryTests
     [Fact]
     public void Simulado_DaElDriverSimulado()
     {
-        using var driver = new PlcDriverFactory(Settings).Crear(Equipo(CteFexit.ProtocoloSimulado));
+        using var driver = new PlcDriverFactory(Settings).Crear(Controlador(CteFexit.ProtocoloSimulado));
 
         Assert.IsType<DriverSimulado>(driver);
     }
@@ -50,7 +50,7 @@ public class DriverFactoryTests
         // cargada contra una BD vieja o migrada a mano.
         var fabrica = new PlcDriverFactory(Settings);
 
-        Assert.Throws<NotSupportedException>(() => fabrica.Crear(Equipo("Profibus")));
+        Assert.Throws<NotSupportedException>(() => fabrica.Crear(Controlador("Profibus")));
     }
 
     [Theory]
@@ -63,7 +63,7 @@ public class DriverFactoryTests
         // Que el driver se construya sin tirar es lo que prueba que el modelo se está pasando y que
         // MapModeloToCpuType lo reconoce. Es el paso que axControlBE se saltea: su factory nunca pasa
         // plc.Modelo, así que corre siempre en el default y la columna que tienen no hace nada.
-        using var driver = new PlcDriverFactory(Settings).Crear(Equipo(CteFexit.ProtocoloSiemensS7, modelo));
+        using var driver = new PlcDriverFactory(Settings).Crear(Controlador(CteFexit.ProtocoloSiemensS7, modelo));
 
         Assert.IsType<SiemensS7Driver>(driver);
     }
@@ -75,6 +75,6 @@ public class DriverFactoryTests
         // lectura, el síntoma sería una PlcException genérica y nadie sospecharía del modelo.
         var fabrica = new PlcDriverFactory(Settings);
 
-        Assert.Throws<NotSupportedException>(() => fabrica.Crear(Equipo(CteFexit.ProtocoloSiemensS7, "LOGO8")));
+        Assert.Throws<NotSupportedException>(() => fabrica.Crear(Controlador(CteFexit.ProtocoloSiemensS7, "LOGO8")));
     }
 }

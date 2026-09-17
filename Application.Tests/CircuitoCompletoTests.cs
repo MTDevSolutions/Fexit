@@ -10,7 +10,7 @@ using Microsoft.Extensions.Hosting;
 namespace Application.Tests;
 
 /// <summary>
-/// El circuito de §9, sin PLC: levanta la app entera, carga un equipo con Protocolo=Simulado por el
+/// El circuito de §9, sin PLC: levanta la app entera, carga un controlador con Protocolo=Simulado por el
 /// ABM y ejecuta contra él por HTTP. Prueba lo que ninguna otra prueba de este plan toca: que el
 /// middleware, el ruteo, la serialización y la BD estén bien enchufados entre sí.
 ///
@@ -36,22 +36,22 @@ public class CircuitoCompletoTests : IClassFixture<FexitEnMemoria>
         var cliente = _app.CreateClient();
 
         Assert.Equal(HttpStatusCode.Unauthorized, (await cliente.GetAsync("/acciones")).StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await cliente.GetAsync("/catalogo/equipos")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await cliente.GetAsync("/catalogo/controladores")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await cliente.GetAsync("/health")).StatusCode);
     }
 
     [Fact]
-    public async Task CargarUnEquipoSimuladoYEjecutarUnaEscritura()
+    public async Task CargarUnControladorSimuladoYEjecutarUnaEscritura()
     {
         var cliente = ClienteConClave();
         var sufijo = Guid.NewGuid().ToString("N")[..6];
 
-        var equipoId = await Crear<long>(cliente, "/catalogo/equipos", new EquipoRequest(
+        var controladorId = await Crear<long>(cliente, "/catalogo/controladores", new ControladorRequest(
             $"bomba_{sufijo}", CteFexit.TipoEquipoPlc, "10.0.0.50", 502, CteFexit.ProtocoloSimulado, 0, 0));
 
         var codigo = $"arrancar_{sufijo}";
         await Crear<long>(cliente, "/catalogo/acciones", new AccionRequest(
-            codigo, "Arranca la bomba", CteFexit.ModoEscritura, equipoId,
+            codigo, "Arranca la bomba", CteFexit.ModoEscritura, controladorId,
             "40001", CteFexit.HoldingRegister, 1, UsaEnclavamientos: false, Habilitada: true));
 
         // Aparece en el catálogo publicado, que es lo que Dixit lee para el alta.
@@ -75,11 +75,11 @@ public class CircuitoCompletoTests : IClassFixture<FexitEnMemoria>
         var cliente = ClienteConClave();
         var sufijo = Guid.NewGuid().ToString("N")[..6];
 
-        var equipoId = await Crear<long>(cliente, "/catalogo/equipos", new EquipoRequest(
+        var controladorId = await Crear<long>(cliente, "/catalogo/controladores", new ControladorRequest(
             $"barrera_{sufijo}", CteFexit.TipoEquipoPlc, "10.0.0.51", 502, CteFexit.ProtocoloSimulado, 0, 0));
         var codigo = $"abrir_{sufijo}";
         await Crear<long>(cliente, "/catalogo/acciones", new AccionRequest(
-            codigo, "Abre la barrera", CteFexit.ModoEscritura, equipoId,
+            codigo, "Abre la barrera", CteFexit.ModoEscritura, controladorId,
             "1", CteFexit.Coil, 1, UsaEnclavamientos: false, Habilitada: true));
 
         var respuesta = await cliente.PostAsJsonAsync(
@@ -101,19 +101,19 @@ public class CircuitoCompletoTests : IClassFixture<FexitEnMemoria>
     public async Task UnaLecturaDevuelveLaTablaDeEnclavamientosPorHttp()
     {
         // El caso que más importa que funcione punta a punta: la tabla viaja serializada y Dixit la
-        // mete en el carril del SQL hacia la segunda pasada. Con el equipo simulado en 0 y valoresOk
+        // mete en el carril del SQL hacia la segunda pasada. Con el controlador simulado en 0 y valoresOk
         // en [1], tiene que salir "no".
         var cliente = ClienteConClave();
         var sufijo = Guid.NewGuid().ToString("N")[..6];
 
-        var equipoId = await Crear<long>(cliente, "/catalogo/equipos", new EquipoRequest(
+        var controladorId = await Crear<long>(cliente, "/catalogo/controladores", new ControladorRequest(
             $"silo_{sufijo}", CteFexit.TipoEquipoPlc, "10.0.0.52", 502, CteFexit.ProtocoloSimulado, 0, 0));
-        await Crear<long>(cliente, $"/catalogo/equipos/{equipoId}/enclavamientos",
+        await Crear<long>(cliente, $"/catalogo/controladores/{controladorId}/enclavamientos",
             new EnclavamientoRequest("40010", CteFexit.HoldingRegister, "Portón de playa", [1], 1));
 
         var codigo = $"estado_{sufijo}";
         await Crear<long>(cliente, "/catalogo/acciones", new AccionRequest(
-            codigo, "Estado del silo", CteFexit.ModoLectura, equipoId,
+            codigo, "Estado del silo", CteFexit.ModoLectura, controladorId,
             null, null, null, UsaEnclavamientos: true, Habilitada: true));
 
         var respuesta = await cliente.PostAsJsonAsync(
@@ -136,14 +136,14 @@ public class CircuitoCompletoTests : IClassFixture<FexitEnMemoria>
         var cliente = ClienteConClave();
         var sufijo = Guid.NewGuid().ToString("N")[..6];
 
-        var equipoId = await Crear<long>(cliente, "/catalogo/equipos", new EquipoRequest(
+        var controladorId = await Crear<long>(cliente, "/catalogo/controladores", new ControladorRequest(
             $"bomba2_{sufijo}", CteFexit.TipoEquipoPlc, "10.0.0.53", 502, CteFexit.ProtocoloSimulado, 0, 0));
-        await Crear<long>(cliente, $"/catalogo/equipos/{equipoId}/enclavamientos",
+        await Crear<long>(cliente, $"/catalogo/controladores/{controladorId}/enclavamientos",
             new EnclavamientoRequest("40020", CteFexit.HoldingRegister, "Térmica", [1], 1));
 
         var codigo = $"arrancar2_{sufijo}";
         await Crear<long>(cliente, "/catalogo/acciones", new AccionRequest(
-            codigo, "Arranca", CteFexit.ModoEscritura, equipoId,
+            codigo, "Arranca", CteFexit.ModoEscritura, controladorId,
             "40021", CteFexit.HoldingRegister, 1, UsaEnclavamientos: true, Habilitada: true));
 
         var respuesta = await cliente.PostAsJsonAsync(
@@ -156,16 +156,16 @@ public class CircuitoCompletoTests : IClassFixture<FexitEnMemoria>
     }
 
     [Fact]
-    public async Task ElEquipoInalcanzableDa502()
+    public async Task ElControladorInalcanzableDa502()
     {
         var cliente = ClienteConClave();
         var sufijo = Guid.NewGuid().ToString("N")[..6];
 
-        var equipoId = await Crear<long>(cliente, "/catalogo/equipos", new EquipoRequest(
+        var controladorId = await Crear<long>(cliente, "/catalogo/controladores", new ControladorRequest(
             $"caido_{sufijo}", CteFexit.TipoEquipoPlc, "10.255.255.255", 502, CteFexit.ProtocoloSimulado, 0, 0));
         var codigo = $"tocar_{sufijo}";
         await Crear<long>(cliente, "/catalogo/acciones", new AccionRequest(
-            codigo, "Toca algo", CteFexit.ModoEscritura, equipoId,
+            codigo, "Toca algo", CteFexit.ModoEscritura, controladorId,
             "1", CteFexit.Coil, 1, UsaEnclavamientos: false, Habilitada: true));
 
         var respuesta = await cliente.PostAsJsonAsync(

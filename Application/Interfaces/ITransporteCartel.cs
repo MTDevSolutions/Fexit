@@ -9,5 +9,5 @@ namespace Application.Interfaces;
 /// </summary>
 public interface ITransporteCartel
 {
-    Task EnviarAsync(Equipo equipo, string xml, CancellationToken ct);
+    Task EnviarAsync(Controlador controlador, string xml, CancellationToken ct);
 }

@@ -15,7 +15,7 @@ namespace Infrastructure.Data.Repositorios;
 /// </summary>
 public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
 {
-    public async Task<long> CrearEquipoAsync(EquipoRequest req, CancellationToken ct)
+    public async Task<long> CrearControladorAsync(ControladorRequest req, CancellationToken ct)
     {
         if (!CteFexit.Protocolos.Contains(req.Protocolo))
             throw new ConfigInvalidaException(
@@ -26,58 +26,58 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
         // El protocolo tiene que ser del tipo: un cartel sólo habla Huidu, y un PLC nunca.
         if ((req.TipoEquipo == CteFexit.TipoEquipoCartel) != (req.Protocolo == CteFexit.ProtocoloHuiduSdk))
             throw new ConfigInvalidaException(
-                $"Un equipo {CteFexit.TipoEquipoCartel} usa el protocolo {CteFexit.ProtocoloHuiduSdk}, y ningún otro tipo lo usa.");
+                $"Un controlador {CteFexit.TipoEquipoCartel} usa el protocolo {CteFexit.ProtocoloHuiduSdk}, y ningún otro tipo lo usa.");
         // Se valida SIEMPRE, aunque en Modbus y en Simulado se ignore: si se dejara pasar cualquier
-        // cosa ahí, el día que ese equipo cambie a SiemensS7 la fila quedaría con un modelo inválido y
-        // el error saldría recién al ejecutar.
+        // cosa ahí, el día que ese controlador cambie a SiemensS7 la fila quedaría con un modelo
+        // inválido y el error saldría recién al ejecutar.
         if (!CteFexit.Modelos.Contains(req.Modelo))
             throw new ConfigInvalidaException(
                 $"Modelo de CPU desconocido. Los válidos son: {string.Join(", ", CteFexit.Modelos)}.");
         if (string.IsNullOrWhiteSpace(req.Nombre) || string.IsNullOrWhiteSpace(req.Ip))
-            throw new ConfigInvalidaException("Faltan el nombre o la IP del equipo.");
+            throw new ConfigInvalidaException("Faltan el nombre o la IP del controlador.");
         if (req.Puerto <= 0 || req.Puerto > 65535)
             throw new ConfigInvalidaException("El puerto está fuera de rango.");
 
         var nombre = req.Nombre.Trim();
-        if (await ctx.Equipos.AnyAsync(e => e.Nombre == nombre, ct))
-            throw new ConfigInvalidaException("Ya hay un equipo con ese nombre.");
+        if (await ctx.Controladores.AnyAsync(e => e.Nombre == nombre, ct))
+            throw new ConfigInvalidaException("Ya hay un controlador con ese nombre.");
 
-        var equipo = new Equipo
+        var controlador = new Controlador
         {
             Nombre = nombre, TipoEquipo = req.TipoEquipo, Ip = req.Ip.Trim(),
             Puerto = req.Puerto, Protocolo = req.Protocolo, Modelo = req.Modelo,
             Rack = req.Rack, Slot = req.Slot,
         };
-        ctx.Equipos.Add(equipo);
+        ctx.Controladores.Add(controlador);
         await ctx.SaveChangesAsync(ct);
-        return equipo.Id;
+        return controlador.Id;
     }
 
-    public async Task<IReadOnlyList<EquipoDto>> ListarEquiposAsync(CancellationToken ct) =>
-        await ctx.Equipos.AsNoTracking().OrderBy(e => e.Nombre)
-            .Select(e => new EquipoDto(
+    public async Task<IReadOnlyList<ControladorDto>> ListarControladoresAsync(CancellationToken ct) =>
+        await ctx.Controladores.AsNoTracking().OrderBy(e => e.Nombre)
+            .Select(e => new ControladorDto(
                 e.Id, e.Nombre, e.TipoEquipo, e.Ip, e.Puerto, e.Protocolo, e.Modelo, e.Rack, e.Slot))
             .ToListAsync(ct);
 
-    public async Task BorrarEquipoAsync(long id, CancellationToken ct)
+    public async Task BorrarControladorAsync(long id, CancellationToken ct)
     {
-        var equipo = await ctx.Equipos.FirstOrDefaultAsync(e => e.Id == id, ct)
-            ?? throw new AccionNoEncontradaException("El equipo no existe.");
+        var controlador = await ctx.Controladores.FirstOrDefaultAsync(e => e.Id == id, ct)
+            ?? throw new AccionNoEncontradaException("El controlador no existe.");
 
         // FK Restrict: borrarlo dejaría acciones apuntando a la nada, y Dixit las seguiría ofreciendo
         // hasta que alguien las ejecute. Se avisa acá en vez de dejar tirar la FK.
-        if (await ctx.Acciones.AnyAsync(a => a.EquipoId == id, ct))
-            throw new ConfigInvalidaException("El equipo tiene acciones cargadas. Borralas primero.");
+        if (await ctx.Acciones.AnyAsync(a => a.ControladorId == id, ct))
+            throw new ConfigInvalidaException("El controlador tiene acciones cargadas. Borralas primero.");
 
         // Los enclavamientos se van solos, por el Cascade.
-        ctx.Equipos.Remove(equipo);
+        ctx.Controladores.Remove(controlador);
         await ctx.SaveChangesAsync(ct);
     }
 
-    public async Task<long> CrearEnclavamientoAsync(long equipoId, EnclavamientoRequest req, CancellationToken ct)
+    public async Task<long> CrearEnclavamientoAsync(long controladorId, EnclavamientoRequest req, CancellationToken ct)
     {
-        if (!await ctx.Equipos.AnyAsync(e => e.Id == equipoId, ct))
-            throw new AccionNoEncontradaException("El equipo no existe.");
+        if (!await ctx.Controladores.AnyAsync(e => e.Id == controladorId, ct))
+            throw new AccionNoEncontradaException("El controlador no existe.");
         if (string.IsNullOrWhiteSpace(req.Direccion) || string.IsNullOrWhiteSpace(req.Nombre))
             throw new ConfigInvalidaException("Faltan la dirección o el nombre del enclavamiento.");
         if (!CteFexit.TiposDireccion.Contains(req.TipoDireccion))
@@ -89,7 +89,7 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
 
         var fila = new Enclavamiento
         {
-            EquipoId = equipoId, Direccion = req.Direccion.Trim(), TipoDireccion = req.TipoDireccion,
+            ControladorId = controladorId, Direccion = req.Direccion.Trim(), TipoDireccion = req.TipoDireccion,
             Nombre = req.Nombre.Trim(), ValoresOk = [.. req.ValoresOk], Orden = req.Orden,
         };
         ctx.Enclavamientos.Add(fila);
@@ -97,11 +97,11 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
         return fila.Id;
     }
 
-    public async Task<IReadOnlyList<EnclavamientoDto>> ListarEnclavamientosAsync(long equipoId, CancellationToken ct) =>
-        await ctx.Enclavamientos.AsNoTracking().Where(e => e.EquipoId == equipoId)
+    public async Task<IReadOnlyList<EnclavamientoDto>> ListarEnclavamientosAsync(long controladorId, CancellationToken ct) =>
+        await ctx.Enclavamientos.AsNoTracking().Where(e => e.ControladorId == controladorId)
             .OrderBy(e => e.Orden).ThenBy(e => e.Id)
             .Select(e => new EnclavamientoDto(
-                e.Id, e.EquipoId, e.Direccion, e.TipoDireccion, e.Nombre, e.ValoresOk, e.Orden))
+                e.Id, e.ControladorId, e.Direccion, e.TipoDireccion, e.Nombre, e.ValoresOk, e.Orden))
             .ToListAsync(ct);
 
     public async Task BorrarEnclavamientoAsync(long id, CancellationToken ct)
@@ -119,7 +119,7 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
         var accion = new Accion
         {
             Codigo = req.Codigo.Trim(), Descripcion = req.Descripcion.Trim(), Modo = req.Modo,
-            EquipoId = req.EquipoId, Direccion = req.Direccion?.Trim(), TipoDireccion = req.TipoDireccion,
+            ControladorId = req.ControladorId, Direccion = req.Direccion?.Trim(), TipoDireccion = req.TipoDireccion,
             Valor = req.Valor, UsaEnclavamientos = req.UsaEnclavamientos, Habilitada = req.Habilitada,
             DefinicionParametrosJson = NoVacio(req.DefinicionParametrosJson), ConfigJson = NoVacio(req.ConfigJson),
         };
@@ -133,7 +133,7 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
         // filtra es el catálogo publicado (AccionRepository.ListarAsync).
         await ctx.Acciones.AsNoTracking().OrderBy(a => a.Codigo)
             .Select(a => new AccionCatalogoDto(
-                a.Id, a.Codigo, a.Descripcion, a.Modo, a.EquipoId,
+                a.Id, a.Codigo, a.Descripcion, a.Modo, a.ControladorId,
                 a.Direccion, a.TipoDireccion, a.Valor, a.UsaEnclavamientos, a.Habilitada,
                 a.DefinicionParametrosJson, a.ConfigJson))
             .ToListAsync(ct);
@@ -152,7 +152,7 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
         accion.Codigo = req.Codigo.Trim();
         accion.Descripcion = req.Descripcion.Trim();
         accion.Modo = req.Modo;
-        accion.EquipoId = req.EquipoId;
+        accion.ControladorId = req.ControladorId;
         accion.Direccion = req.Direccion?.Trim();
         accion.TipoDireccion = req.TipoDireccion;
         accion.Valor = req.Valor;
@@ -181,8 +181,8 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
             throw new ConfigInvalidaException("Faltan el código o la descripción de la acción.");
         if (!CteFexit.EsModoValido(req.Modo))
             throw new ConfigInvalidaException($"Modo desconocido. Los válidos son: {CteFexit.ModoLectura}, {CteFexit.ModoEscritura}.");
-        var equipo = await ctx.Equipos.AsNoTracking().FirstOrDefaultAsync(e => e.Id == req.EquipoId, ct)
-            ?? throw new ConfigInvalidaException("El equipo de la acción no existe.");
+        var controlador = await ctx.Controladores.AsNoTracking().FirstOrDefaultAsync(e => e.Id == req.ControladorId, ct)
+            ?? throw new ConfigInvalidaException("El controlador de la acción no existe.");
 
         var codigo = req.Codigo.Trim();
         if (await ctx.Acciones.AnyAsync(a => a.Codigo == codigo && a.Id != idQueSeEdita, ct))
@@ -195,12 +195,12 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
         {
             if (defs.Count > 0)
                 throw new ConfigInvalidaException("Una acción de lectura no lleva parámetros.");
-            if (equipo.TipoEquipo == CteFexit.TipoEquipoCartel)
+            if (controlador.TipoEquipo == CteFexit.TipoEquipoCartel)
                 throw new ConfigInvalidaException("Un cartel no admite acciones de lectura.");
             return;
         }
 
-        if (equipo.TipoEquipo == CteFexit.TipoEquipoCartel)
+        if (controlador.TipoEquipo == CteFexit.TipoEquipoCartel)
             ValidarEscrituraCartel(req, defs);
         else
             ValidarEscrituraPlc(req, defs);

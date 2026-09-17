@@ -53,18 +53,18 @@ public class AccionRepository(FexitDbContext ctx, ILogger<AccionRepository>? log
         if (accion is null)
             return null;
 
-        var equipo = await ctx.Equipos.AsNoTracking().FirstOrDefaultAsync(e => e.Id == accion.EquipoId, ct);
-        if (equipo is null)
+        var controlador = await ctx.Controladores.AsNoTracking().FirstOrDefaultAsync(e => e.Id == accion.ControladorId, ct);
+        if (controlador is null)
             return null;   // FK Restrict lo hace imposible; si pasa, es una BD tocada a mano.
 
-        // Los enclavamientos son del EQUIPO (§4.2). Se traen siempre, aunque UsaEnclavamientos sea
-        // false: quién los usa y cómo lo decide el ejecutor, y traerlos igual cuesta una consulta a
-        // una tabla de tres filas.
+        // Los enclavamientos son del CONTROLADOR (§4.2). Se traen siempre, aunque UsaEnclavamientos
+        // sea false: quién los usa y cómo lo decide el ejecutor, y traerlos igual cuesta una consulta
+        // a una tabla de tres filas.
         var enclavamientos = await ctx.Enclavamientos.AsNoTracking()
-            .Where(e => e.EquipoId == equipo.Id)
+            .Where(e => e.ControladorId == controlador.Id)
             .OrderBy(e => e.Orden).ThenBy(e => e.Id)
             .ToListAsync(ct);
 
-        return new AccionAEjecutar(accion, equipo, enclavamientos);
+        return new AccionAEjecutar(accion, controlador, enclavamientos);
     }
 }

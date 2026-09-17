@@ -44,7 +44,7 @@ public class EjecutorCartel(ITransporteCartel transporte) : IEjecutorAccion
 
         try
         {
-            await transporte.EnviarAsync(accion.Equipo, xml, ct);
+            await transporte.EnviarAsync(accion.Controlador, xml, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {

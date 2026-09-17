@@ -1,14 +1,15 @@
 namespace Domain.Entities;
 
 /// <summary>
-/// Un equipo de planta. Es el único lugar que sabe CÓMO se llega: IP, puerto, protocolo, rack y
-/// slot. Dixit nunca ve nada de esto (§2 del spec): manda un código y se entera del resultado.
+/// Un controlador de planta (PLC o cartel). Es el único lugar que sabe CÓMO se llega: IP, puerto,
+/// protocolo, rack y slot. Dixit nunca ve nada de esto (§2 del spec): manda un código y se entera
+/// del resultado.
 ///
 /// Rack y Slot son de Siemens y quedan en 0 para Modbus. Viven en la fila y no en una tabla aparte
 /// por protocolo porque son dos enteros: una tabla por protocolo para eso sería ceremonia sin
 /// beneficio, y el día que entre un protocolo con cinco campos propios se resuelve entonces.
 /// </summary>
-public class Equipo
+public class Controlador
 {
     public long Id { get; set; }
 

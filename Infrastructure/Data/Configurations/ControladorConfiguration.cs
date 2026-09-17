@@ -5,22 +5,22 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Infrastructure.Data.Configurations;
 
-public class EquipoConfiguration : IEntityTypeConfiguration<Equipo>
+public class ControladorConfiguration : IEntityTypeConfiguration<Controlador>
 {
-    public void Configure(EntityTypeBuilder<Equipo> b)
+    public void Configure(EntityTypeBuilder<Controlador> b)
     {
-        b.ToTable("Equipos", t =>
+        b.ToTable("Controladores", t =>
         {
             // Un protocolo que ninguna factory atiende sólo fallaría el día que alguien ejecuta una
-            // acción de este equipo. La base lo rechaza al cargarlo.
-            t.HasCheckConstraint("CK_Equipos_Protocolo",
+            // acción de este controlador. La base lo rechaza al cargarlo.
+            t.HasCheckConstraint("CK_Controladores_Protocolo",
                 $"Protocolo IN ({EnclavamientoConfiguration.Enumerado(CteFexit.Protocolos)})");
-            t.HasCheckConstraint("CK_Equipos_TipoEquipo",
+            t.HasCheckConstraint("CK_Controladores_TipoEquipo",
                 $"TipoEquipo IN ({EnclavamientoConfiguration.Enumerado(CteFexit.TiposEquipo)})");
-            t.HasCheckConstraint("CK_Equipos_Puerto", "Puerto > 0 AND Puerto <= 65535");
+            t.HasCheckConstraint("CK_Controladores_Puerto", "Puerto > 0 AND Puerto <= 65535");
             // Los cinco que conoce S7netplus. Un modelo equivocado no da un error legible: da una
             // PlcException genérica en la primera lectura, y quien la ve revisa el cableado.
-            t.HasCheckConstraint("CK_Equipos_Modelo",
+            t.HasCheckConstraint("CK_Controladores_Modelo",
                 $"Modelo IN ({EnclavamientoConfiguration.Enumerado(CteFexit.Modelos)})");
         });
         b.HasKey(e => e.Id);
@@ -34,6 +34,6 @@ public class EquipoConfiguration : IEntityTypeConfiguration<Equipo>
         b.Property(e => e.Rack).HasDefaultValue(0);
         b.Property(e => e.Slot).HasDefaultValue(0);
 
-        b.HasIndex(e => e.Nombre).IsUnique().HasDatabaseName("IX_Equipos_Nombre");
+        b.HasIndex(e => e.Nombre).IsUnique().HasDatabaseName("IX_Controladores_Nombre");
     }
 }

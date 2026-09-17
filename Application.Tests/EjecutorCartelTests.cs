@@ -13,7 +13,7 @@ public class EjecutorCartelTests
     {
         public List<string> Enviados { get; } = [];
 
-        public Task EnviarAsync(Equipo equipo, string xml, CancellationToken ct)
+        public Task EnviarAsync(Controlador controlador, string xml, CancellationToken ct)
         {
             if (tira is not null) throw tira;
             Enviados.Add(xml);
@@ -21,7 +21,7 @@ public class EjecutorCartelTests
         }
     }
 
-    private static Equipo Cartel() => new()
+    private static Controlador Cartel() => new()
     {
         Id = 2, Nombre = "cartel_ingreso", TipoEquipo = CteFexit.TipoEquipoCartel, Ip = "10.0.0.30",
         Puerto = 10001, Protocolo = CteFexit.ProtocoloHuiduSdk,
@@ -29,7 +29,7 @@ public class EjecutorCartelTests
 
     private static Accion Escritura(string? config = null) => new()
     {
-        Codigo = "cartel_ingreso_mensaje", Descripcion = "d", Modo = CteFexit.ModoEscritura, EquipoId = 2,
+        Codigo = "cartel_ingreso_mensaje", Descripcion = "d", Modo = CteFexit.ModoEscritura, ControladorId = 2,
         Habilitada = true, ConfigJson = config,
     };
 

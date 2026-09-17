@@ -74,5 +74,5 @@ public sealed class DriverFalso : IPlcDriver
 /// <summary>Devuelve siempre el mismo driver, para poder inspeccionarlo después de ejecutar.</summary>
 public sealed class FactoriaFalsa(DriverFalso driver) : IPlcDriverFactory
 {
-    public IPlcDriver Crear(Equipo equipo) => driver;
+    public IPlcDriver Crear(Controlador controlador) => driver;
 }

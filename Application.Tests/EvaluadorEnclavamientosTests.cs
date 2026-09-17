@@ -7,7 +7,7 @@ public class EvaluadorEnclavamientosTests
 {
     private static Enclavamiento Enc(string nombre, params int[] valoresOk) => new()
     {
-        Id = 0, EquipoId = 1, Direccion = "DB1.DBX1.0", TipoDireccion = "S7Bit",
+        Id = 0, ControladorId = 1, Direccion = "DB1.DBX1.0", TipoDireccion = "S7Bit",
         Nombre = nombre, ValoresOk = [.. valoresOk], Orden = 0,
     };
 

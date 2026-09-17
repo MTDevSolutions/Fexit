@@ -19,7 +19,7 @@ namespace Infrastructure.Drivers.Huidu;
 /// </summary>
 public class TransporteCartelHuidu(IOptions<FexitSettings> settings) : ITransporteCartel
 {
-    public async Task EnviarAsync(Equipo equipo, string xml, CancellationToken ct)
+    public async Task EnviarAsync(Controlador controlador, string xml, CancellationToken ct)
     {
         using var manager = new HDCommunicationManager();
 
@@ -48,7 +48,7 @@ public class TransporteCartelHuidu(IOptions<FexitSettings> settings) : ITranspor
         var cliente = new TcpClient();
         try
         {
-            await cliente.ConnectAsync(equipo.Ip, equipo.Puerto, deadline.Token);
+            await cliente.ConnectAsync(controlador.Ip, controlador.Puerto, deadline.Token);
         }
         catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
         {

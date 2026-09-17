@@ -38,7 +38,7 @@ public class ServicioAccionesTests
         }
     }
 
-    private static Equipo Equipo(string tipoEquipo = CteFexit.TipoEquipoPlc) => new()
+    private static Controlador Controlador(string tipoEquipo = CteFexit.TipoEquipoPlc) => new()
     {
         Id = 1, Nombre = "bomba3", TipoEquipo = tipoEquipo, Ip = "10.0.0.20", Puerto = 102,
         Protocolo = CteFexit.ProtocoloSiemensS7, Rack = 0, Slot = 1,
@@ -48,10 +48,10 @@ public class ServicioAccionesTests
         string modo, string tipoEquipo = CteFexit.TipoEquipoPlc, string? definicion = null) =>
         new(new Accion
         {
-            Codigo = "abrir_barrera", Descripcion = "d", Modo = modo, EquipoId = 1,
+            Codigo = "abrir_barrera", Descripcion = "d", Modo = modo, ControladorId = 1,
             Direccion = "DB1.DBX0.0", TipoDireccion = CteFexit.S7Bit, Valor = 1,
             UsaEnclavamientos = false, Habilitada = true, DefinicionParametrosJson = definicion,
-        }, Equipo(tipoEquipo), []);
+        }, Controlador(tipoEquipo), []);
 
     [Fact]
     public async Task ConElModoCorrecto_Ejecuta()

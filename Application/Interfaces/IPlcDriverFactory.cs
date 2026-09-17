@@ -8,5 +8,5 @@ namespace Application.Interfaces;
 /// </summary>
 public interface IPlcDriverFactory
 {
-    IPlcDriver Crear(Equipo equipo);
+    IPlcDriver Crear(Controlador controlador);
 }

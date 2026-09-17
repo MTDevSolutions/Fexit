@@ -33,7 +33,7 @@ public class ServicioAcciones(IAccionRepository repositorio, IEnumerable<IEjecut
         var defs = ValidadorParametros.LeerDefinicion(accion.Accion.DefinicionParametrosJson);
         var valores = ValidadorParametros.ValidarValores(defs, parametros);
 
-        var ejecutor = ejecutores.FirstOrDefault(e => e.TipoEquipo == accion.Equipo.TipoEquipo)
+        var ejecutor = ejecutores.FirstOrDefault(e => e.TipoEquipo == accion.Controlador.TipoEquipo)
             // El CHECK de la base limita los tipos, así que esto es una fila cargada contra una BD
             // vieja. Config, no red: definitivo, sin reintento.
             ?? throw new ConfigInvalidaException("No hay ejecutor para el tipo de equipo configurado.");

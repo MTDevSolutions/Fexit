@@ -16,17 +16,17 @@ public class CatalogoAbmParametrosTests
 
     private static CatalogoController Controller(DbDePrueba p) => new(new CatalogoRepository(p.CrearContext()));
 
-    private static long Crear(DbDePrueba p, EquipoRequest req) =>
-        (long)((ObjectResult)Controller(p).CrearEquipo(req, default).GetAwaiter().GetResult().Result!).Value!;
+    private static long Crear(DbDePrueba p, ControladorRequest req) =>
+        (long)((ObjectResult)Controller(p).CrearControlador(req, default).GetAwaiter().GetResult().Result!).Value!;
 
     private static long Cartel(DbDePrueba p) =>
-        Crear(p, new EquipoRequest("cartel_ingreso", CteFexit.TipoEquipoCartel, "10.0.0.30", 10001, CteFexit.ProtocoloHuiduSdk, 0, 0));
+        Crear(p, new ControladorRequest("cartel_ingreso", CteFexit.TipoEquipoCartel, "10.0.0.30", 10001, CteFexit.ProtocoloHuiduSdk, 0, 0));
 
     private static long Plc(DbDePrueba p) =>
-        Crear(p, new EquipoRequest("barrera", CteFexit.TipoEquipoPlc, "10.0.0.20", 102, CteFexit.ProtocoloSiemensS7, 0, 1));
+        Crear(p, new ControladorRequest("barrera", CteFexit.TipoEquipoPlc, "10.0.0.20", 102, CteFexit.ProtocoloSiemensS7, 0, 1));
 
-    private static AccionRequest EscrituraCartel(long equipoId, string? def, string? config) =>
-        new("cartel_ingreso_mensaje", "Muestra un texto", CteFexit.ModoEscritura, equipoId,
+    private static AccionRequest EscrituraCartel(long controladorId, string? def, string? config) =>
+        new("cartel_ingreso_mensaje", "Muestra un texto", CteFexit.ModoEscritura, controladorId,
             null, null, null, false, true, def, config);
 
     [Fact]
@@ -90,8 +90,8 @@ public class CatalogoAbmParametrosTests
     private static string DefEntero(int minimo, int maximo) =>
         $$"""[{"nombre":"minutos","tipo":"entero","etiqueta":"minutos","requerido":true,"minimo":{{minimo}},"maximo":{{maximo}}}]""";
 
-    private static AccionRequest AccionConParametroPlc(long equipoId, string def, string tipoDireccionParametro) =>
-        new("abrir_barrera_tiempo", "d", CteFexit.ModoEscritura, equipoId,
+    private static AccionRequest AccionConParametroPlc(long controladorId, string def, string tipoDireccionParametro) =>
+        new("abrir_barrera_tiempo", "d", CteFexit.ModoEscritura, controladorId,
             "DB1.DBX0.0", CteFexit.S7Bit, 1, false, true, def,
             $$"""{"direccionParametro":"DB10.DBW4","tipoDireccionParametro":"{{tipoDireccionParametro}}"}""");
 
@@ -147,11 +147,11 @@ public class CatalogoAbmParametrosTests
     }
 
     [Fact]
-    public async Task UnEquipoCartelExigeElProtocoloHuidu()
+    public async Task UnControladorCartelExigeElProtocoloHuidu()
     {
         using var p = new DbDePrueba();
-        await Assert.ThrowsAsync<ConfigInvalidaException>(() => Controller(p).CrearEquipo(
-            new EquipoRequest("c", CteFexit.TipoEquipoCartel, "10.0.0.30", 10001, CteFexit.ProtocoloSiemensS7, 0, 0), default));
+        await Assert.ThrowsAsync<ConfigInvalidaException>(() => Controller(p).CrearControlador(
+            new ControladorRequest("c", CteFexit.TipoEquipoCartel, "10.0.0.30", 10001, CteFexit.ProtocoloSiemensS7, 0, 0), default));
     }
 
     [Fact]

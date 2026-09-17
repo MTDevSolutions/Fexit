@@ -83,7 +83,7 @@ public class ManejadorExcepcionesTests
             _ => Task.FromException(new ConfigInvalidaException("Protocolo desconocido.")),
             NullLogger<ManejadorExcepciones>.Instance);
         var ctx = new DefaultHttpContext();
-        ctx.Request.Path = "/catalogo/equipos";
+        ctx.Request.Path = "/catalogo/controladores";
         ctx.Response.Body = new MemoryStream();
 
         await middleware.InvokeAsync(ctx);

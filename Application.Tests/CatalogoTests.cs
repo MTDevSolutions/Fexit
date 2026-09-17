@@ -8,18 +8,18 @@ namespace Application.Tests;
 
 public class CatalogoTests
 {
-    private static Equipo NuevoEquipo(string nombre = "bomba3") => new()
+    private static Controlador NuevoControlador(string nombre = "bomba3") => new()
     {
         Nombre = nombre, TipoEquipo = CteFexit.TipoEquipoPlc, Ip = "10.0.0.20", Puerto = 102,
         Protocolo = CteFexit.ProtocoloSiemensS7, Rack = 0, Slot = 1,
     };
 
-    private static Accion NuevaAccion(string codigo, long equipoId, string modo, bool habilitada = true) => new()
+    private static Accion NuevaAccion(string codigo, long controladorId, string modo, bool habilitada = true) => new()
     {
         Codigo = codigo,
         Descripcion = "Descripción de " + codigo,
         Modo = modo,
-        EquipoId = equipoId,
+        ControladorId = controladorId,
         Direccion = modo == CteFexit.ModoEscritura ? "DB1.DBX0.0" : null,
         TipoDireccion = modo == CteFexit.ModoEscritura ? CteFexit.S7Bit : null,
         Valor = modo == CteFexit.ModoEscritura ? 1 : null,
@@ -30,13 +30,13 @@ public class CatalogoTests
     private static AccionesController NuevoController(DbDePrueba prueba) =>
         new(new AccionRepository(prueba.CrearContext()), new ServicioAccionesNoUsado());
 
-    private static long SembrarEquipo(DbDePrueba prueba)
+    private static long SembrarControlador(DbDePrueba prueba)
     {
         using var ctx = prueba.CrearContext();
-        var equipo = NuevoEquipo();
-        ctx.Equipos.Add(equipo);
+        var controlador = NuevoControlador();
+        ctx.Controladores.Add(controlador);
         ctx.SaveChanges();
-        return equipo.Id;
+        return controlador.Id;
     }
 
     [Fact]
@@ -45,10 +45,10 @@ public class CatalogoTests
         // Los tres campos del contrato de §3, y NADA más: ni IP, ni dirección, ni el id del equipo.
         // AccionRemotaDto no tiene esas propiedades, así que no hay forma de que se cuelen.
         using var prueba = new DbDePrueba();
-        var equipoId = SembrarEquipo(prueba);
+        var controladorId = SembrarControlador(prueba);
         using (var ctx = prueba.CrearContext())
         {
-            ctx.Acciones.Add(NuevaAccion("abrir_barrera_ingreso", equipoId, CteFexit.ModoEscritura));
+            ctx.Acciones.Add(NuevaAccion("abrir_barrera_ingreso", controladorId, CteFexit.ModoEscritura));
             ctx.SaveChanges();
         }
 
@@ -66,10 +66,10 @@ public class CatalogoTests
         // Explícito y por serialización, no por inspección de propiedades: es la promesa de §6 —
         // ningún mensaje que salga de Fexit lleva IP, dirección ni puerto.
         using var prueba = new DbDePrueba();
-        var equipoId = SembrarEquipo(prueba);
+        var controladorId = SembrarControlador(prueba);
         using (var ctx = prueba.CrearContext())
         {
-            ctx.Acciones.Add(NuevaAccion("abrir_barrera", equipoId, CteFexit.ModoEscritura));
+            ctx.Acciones.Add(NuevaAccion("abrir_barrera", controladorId, CteFexit.ModoEscritura));
             ctx.SaveChanges();
         }
 
@@ -86,11 +86,11 @@ public class CatalogoTests
         // El catálogo es lo que Dixit ofrece al superadmin en el alta: ofrecer una deshabilitada
         // sería ofrecer algo que va a dar 404 al ejecutarse.
         using var prueba = new DbDePrueba();
-        var equipoId = SembrarEquipo(prueba);
+        var controladorId = SembrarControlador(prueba);
         using (var ctx = prueba.CrearContext())
         {
-            ctx.Acciones.Add(NuevaAccion("viva", equipoId, CteFexit.ModoLectura));
-            ctx.Acciones.Add(NuevaAccion("apagada", equipoId, CteFexit.ModoLectura, habilitada: false));
+            ctx.Acciones.Add(NuevaAccion("viva", controladorId, CteFexit.ModoLectura));
+            ctx.Acciones.Add(NuevaAccion("apagada", controladorId, CteFexit.ModoLectura, habilitada: false));
             ctx.SaveChanges();
         }
 
@@ -106,12 +106,12 @@ public class CatalogoTests
         // parámetros ilegible se degrada a "sin parámetros" en el LISTADO, no tumba el catálogo
         // entero. La ejecución sigue fallando fuerte por su propio camino: eso no se toca acá.
         using var prueba = new DbDePrueba();
-        var equipoId = SembrarEquipo(prueba);
+        var controladorId = SembrarControlador(prueba);
         using (var ctx = prueba.CrearContext())
         {
-            var rota = NuevaAccion("rota", equipoId, CteFexit.ModoLectura);
+            var rota = NuevaAccion("rota", controladorId, CteFexit.ModoLectura);
             rota.DefinicionParametrosJson = "esto no es json";
-            var sana = NuevaAccion("sana", equipoId, CteFexit.ModoLectura);
+            var sana = NuevaAccion("sana", controladorId, CteFexit.ModoLectura);
             ctx.Acciones.Add(rota);
             ctx.Acciones.Add(sana);
             ctx.SaveChanges();
@@ -142,11 +142,11 @@ public class CatalogoTests
     {
         // Determinista a propósito: es una lista que un humano lee en un combo del ABM de Dixit.
         using var prueba = new DbDePrueba();
-        var equipoId = SembrarEquipo(prueba);
+        var controladorId = SembrarControlador(prueba);
         using (var ctx = prueba.CrearContext())
         {
-            ctx.Acciones.Add(NuevaAccion("zeta", equipoId, CteFexit.ModoLectura));
-            ctx.Acciones.Add(NuevaAccion("alfa", equipoId, CteFexit.ModoLectura));
+            ctx.Acciones.Add(NuevaAccion("zeta", controladorId, CteFexit.ModoLectura));
+            ctx.Acciones.Add(NuevaAccion("alfa", controladorId, CteFexit.ModoLectura));
             ctx.SaveChanges();
         }
 
@@ -159,10 +159,10 @@ public class CatalogoTests
     public async Task ElCatalogoPublicaLosParametrosPeroNuncaLaConfig()
     {
         using var prueba = new DbDePrueba();
-        var equipoId = SembrarEquipo(prueba);
+        var controladorId = SembrarControlador(prueba);
         using (var ctx = prueba.CrearContext())
         {
-            var accion = NuevaAccion("abrir_barrera_tiempo", equipoId, CteFexit.ModoEscritura);
+            var accion = NuevaAccion("abrir_barrera_tiempo", controladorId, CteFexit.ModoEscritura);
             accion.DefinicionParametrosJson = """[{"nombre":"minutos","tipo":"entero","etiqueta":"minutos","requerido":true,"minimo":1,"maximo":60}]""";
             accion.ConfigJson = """{"direccionParametro":"DB10.DBW4","tipoDireccionParametro":"S7Word"}""";
             ctx.Acciones.Add(accion);

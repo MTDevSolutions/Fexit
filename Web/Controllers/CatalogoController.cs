@@ -9,38 +9,38 @@ namespace Web.Controllers;
 /// resto: Fexit no autoriza a nadie (§7), y quien tiene la clave ya podía ejecutar acciones, así que
 /// también puede cargarlas.
 ///
-/// No hay PUT de equipo ni de enclavamiento a propósito: son pocas filas, se cargan una vez en la
-/// puesta en marcha, y borrar y volver a crear es un camino menos que mantener y probar. La acción sí
-/// tiene PUT, que es la que se toca seguido (habilitar, deshabilitar, corregir la descripción).
+/// No hay PUT de controlador ni de enclavamiento a propósito: son pocas filas, se cargan una vez en
+/// la puesta en marcha, y borrar y volver a crear es un camino menos que mantener y probar. La acción
+/// sí tiene PUT, que es la que se toca seguido (habilitar, deshabilitar, corregir la descripción).
 /// </summary>
 [ApiController]
 [Route("catalogo")]
 public class CatalogoController(ICatalogoRepository repository) : ControllerBase
 {
-    [HttpGet("equipos")]
-    public async Task<ActionResult<IReadOnlyList<EquipoDto>>> ListarEquipos(CancellationToken ct) =>
-        Ok(await repository.ListarEquiposAsync(ct));
+    [HttpGet("controladores")]
+    public async Task<ActionResult<IReadOnlyList<ControladorDto>>> ListarControladores(CancellationToken ct) =>
+        Ok(await repository.ListarControladoresAsync(ct));
 
-    [HttpPost("equipos")]
-    public async Task<ActionResult<long>> CrearEquipo([FromBody] EquipoRequest req, CancellationToken ct) =>
-        Ok(await repository.CrearEquipoAsync(req, ct));
+    [HttpPost("controladores")]
+    public async Task<ActionResult<long>> CrearControlador([FromBody] ControladorRequest req, CancellationToken ct) =>
+        Ok(await repository.CrearControladorAsync(req, ct));
 
-    [HttpDelete("equipos/{id:long}")]
-    public async Task<ActionResult> BorrarEquipo(long id, CancellationToken ct)
+    [HttpDelete("controladores/{id:long}")]
+    public async Task<ActionResult> BorrarControlador(long id, CancellationToken ct)
     {
-        await repository.BorrarEquipoAsync(id, ct);
+        await repository.BorrarControladorAsync(id, ct);
         return NoContent();
     }
 
-    [HttpGet("equipos/{equipoId:long}/enclavamientos")]
+    [HttpGet("controladores/{controladorId:long}/enclavamientos")]
     public async Task<ActionResult<IReadOnlyList<EnclavamientoDto>>> ListarEnclavamientos(
-        long equipoId, CancellationToken ct) =>
-        Ok(await repository.ListarEnclavamientosAsync(equipoId, ct));
+        long controladorId, CancellationToken ct) =>
+        Ok(await repository.ListarEnclavamientosAsync(controladorId, ct));
 
-    [HttpPost("equipos/{equipoId:long}/enclavamientos")]
+    [HttpPost("controladores/{controladorId:long}/enclavamientos")]
     public async Task<ActionResult<long>> CrearEnclavamiento(
-        long equipoId, [FromBody] EnclavamientoRequest req, CancellationToken ct) =>
-        Ok(await repository.CrearEnclavamientoAsync(equipoId, req, ct));
+        long controladorId, [FromBody] EnclavamientoRequest req, CancellationToken ct) =>
+        Ok(await repository.CrearEnclavamientoAsync(controladorId, req, ct));
 
     [HttpDelete("enclavamientos/{id:long}")]
     public async Task<ActionResult> BorrarEnclavamiento(long id, CancellationToken ct)

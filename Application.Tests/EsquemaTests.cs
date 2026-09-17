@@ -7,7 +7,7 @@ namespace Application.Tests;
 
 public class EsquemaTests
 {
-    private static Equipo NuevoEquipo(string nombre = "bomba3") => new()
+    private static Controlador NuevoControlador(string nombre = "bomba3") => new()
     {
         Nombre = nombre,
         TipoEquipo = "plc",
@@ -20,18 +20,18 @@ public class EsquemaTests
     };
 
     [Fact]
-    public void UnEquipoConSusEnclavamientosYSuAccionSeGuarda()
+    public void UnControladorConSusEnclavamientosYSuAccionSeGuarda()
     {
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
 
-        var equipo = NuevoEquipo();
-        ctx.Equipos.Add(equipo);
+        var controlador = NuevoControlador();
+        ctx.Controladores.Add(controlador);
         ctx.SaveChanges();
 
         ctx.Enclavamientos.Add(new Enclavamiento
         {
-            EquipoId = equipo.Id,
+            ControladorId = controlador.Id,
             Direccion = "DB1.DBX1.0",
             TipoDireccion = "S7Bit",
             Nombre = "Portón de playa",
@@ -43,7 +43,7 @@ public class EsquemaTests
             Codigo = "arrancar_bomba3",
             Descripcion = "Arranca la bomba del silo 3",
             Modo = "escritura",
-            EquipoId = equipo.Id,
+            ControladorId = controlador.Id,
             Direccion = "DB1.DBX0.0",
             TipoDireccion = "S7Bit",
             Valor = 1,
@@ -63,15 +63,15 @@ public class EsquemaTests
         // condición con más de un valor. Si el converter se rompiera, el evaluador compararía contra
         // una lista vacía y TODO daría "fuera de condición" sin ningún error visible.
         using var prueba = new DbDePrueba();
-        var equipo = NuevoEquipo();
+        var controlador = NuevoControlador();
 
         using (var ctx = prueba.CrearContext())
         {
-            ctx.Equipos.Add(equipo);
+            ctx.Controladores.Add(controlador);
             ctx.SaveChanges();
             ctx.Enclavamientos.Add(new Enclavamiento
             {
-                EquipoId = equipo.Id, Direccion = "40001", TipoDireccion = "HoldingRegister",
+                ControladorId = controlador.Id, Direccion = "40001", TipoDireccion = "HoldingRegister",
                 Nombre = "Selector de modo", ValoresOk = [2, 3, 5], Orden = 1,
             });
             ctx.SaveChanges();
@@ -88,47 +88,47 @@ public class EsquemaTests
         // barrera" podría ejecutar cualquiera de las dos filas.
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
-        var equipo = NuevoEquipo();
-        ctx.Equipos.Add(equipo);
+        var controlador = NuevoControlador();
+        ctx.Controladores.Add(controlador);
         ctx.SaveChanges();
 
-        ctx.Acciones.Add(Accion("abrir_barrera", equipo.Id));
-        ctx.Acciones.Add(Accion("abrir_barrera", equipo.Id));
+        ctx.Acciones.Add(Accion("abrir_barrera", controlador.Id));
+        ctx.Acciones.Add(Accion("abrir_barrera", controlador.Id));
 
         Assert.Throws<DbUpdateException>(() => ctx.SaveChanges());
     }
 
     [Fact]
-    public void UnaAccionSinEquipoQueExista_NoSePuede()
+    public void UnaAccionSinControladorQueExista_NoSePuede()
     {
-        // FK real, con Foreign Keys=True en la connection string: una acción que apunta a un equipo
+        // FK real, con Foreign Keys=True en la connection string: una acción que apunta a un controlador
         // inexistente no se puede ejecutar, así que no tiene por qué poder guardarse.
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
 
-        ctx.Acciones.Add(Accion("abrir_barrera", equipoId: 999));
+        ctx.Acciones.Add(Accion("abrir_barrera", controladorId: 999));
 
         Assert.Throws<DbUpdateException>(() => ctx.SaveChanges());
     }
 
     [Fact]
-    public void BorrarElEquipoSeLlevaSusEnclavamientos()
+    public void BorrarElControladorSeLlevaSusEnclavamientos()
     {
-        // Cascade: un enclavamiento sin equipo no significa nada. Y es lo que hace imposible que la
+        // Cascade: un enclavamiento sin controlador no significa nada. Y es lo que hace imposible que la
         // lista de la lectura y la de la escritura divergan (§4.2) — hay una sola.
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
-        var equipo = NuevoEquipo();
-        ctx.Equipos.Add(equipo);
+        var controlador = NuevoControlador();
+        ctx.Controladores.Add(controlador);
         ctx.SaveChanges();
         ctx.Enclavamientos.Add(new Enclavamiento
         {
-            EquipoId = equipo.Id, Direccion = "DB1.DBX1.0", TipoDireccion = "S7Bit",
+            ControladorId = controlador.Id, Direccion = "DB1.DBX1.0", TipoDireccion = "S7Bit",
             Nombre = "Portón", ValoresOk = [1], Orden = 1,
         });
         ctx.SaveChanges();
 
-        ctx.Equipos.Remove(equipo);
+        ctx.Controladores.Remove(controlador);
         ctx.SaveChanges();
 
         Assert.Empty(ctx.Enclavamientos);
@@ -141,11 +141,11 @@ public class EsquemaTests
     {
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
-        var equipo = NuevoEquipo();
-        ctx.Equipos.Add(equipo);
+        var controlador = NuevoControlador();
+        ctx.Controladores.Add(controlador);
         ctx.SaveChanges();
 
-        var accion = Accion("una_accion", equipo.Id);
+        var accion = Accion("una_accion", controlador.Id);
         accion.Modo = modo;
         ctx.Acciones.Add(accion);
         ctx.SaveChanges();
@@ -158,11 +158,11 @@ public class EsquemaTests
     {
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
-        var equipo = NuevoEquipo();
-        ctx.Equipos.Add(equipo);
+        var controlador = NuevoControlador();
+        ctx.Controladores.Add(controlador);
         ctx.SaveChanges();
 
-        var accion = Accion("una_accion", equipo.Id);
+        var accion = Accion("una_accion", controlador.Id);
         accion.Modo = "borrar_todo";
         ctx.Acciones.Add(accion);
 
@@ -173,12 +173,12 @@ public class EsquemaTests
     public void ElCheckDeProtocoloRechazaUnProtocoloDesconocido()
     {
         // Un protocolo que ninguna factory atiende sólo falla el día que alguien ejecuta una acción
-        // de ese equipo. La base lo rechaza antes, igual que el modo.
+        // de ese controlador. La base lo rechaza antes, igual que el modo.
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
-        var equipo = NuevoEquipo();
-        equipo.Protocolo = "Profibus";
-        ctx.Equipos.Add(equipo);
+        var controlador = NuevoControlador();
+        controlador.Protocolo = "Profibus";
+        ctx.Controladores.Add(controlador);
 
         Assert.Throws<DbUpdateException>(() => ctx.SaveChanges());
     }
@@ -193,9 +193,9 @@ public class EsquemaTests
         // perdido.
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
-        var equipo = NuevoEquipo();
-        equipo.Modelo = "LOGO8";
-        ctx.Equipos.Add(equipo);
+        var controlador = NuevoControlador();
+        controlador.Modelo = "LOGO8";
+        ctx.Controladores.Add(controlador);
 
         Assert.Throws<DbUpdateException>(() => ctx.SaveChanges());
     }
@@ -212,7 +212,7 @@ public class EsquemaTests
 
         ctx.Database.Migrate();
 
-        Assert.Empty(ctx.Equipos);
+        Assert.Empty(ctx.Controladores);
         Assert.Empty(ctx.Enclavamientos);
         Assert.Empty(ctx.Acciones);
     }
@@ -228,11 +228,11 @@ public class EsquemaTests
         // negocio entera. El default de esta columna lo dueña C#, no la base.
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
-        var equipo = NuevoEquipo();
-        ctx.Equipos.Add(equipo);
+        var controlador = NuevoControlador();
+        ctx.Controladores.Add(controlador);
         ctx.SaveChanges();
 
-        var accion = Accion("una_accion", equipo.Id);
+        var accion = Accion("una_accion", controlador.Id);
         accion.Habilitada = false;
         ctx.Acciones.Add(accion);
         ctx.SaveChanges();
@@ -241,12 +241,12 @@ public class EsquemaTests
         Assert.False(ctx.Acciones.Single().Habilitada);
     }
 
-    private static Accion Accion(string codigo, long equipoId) => new()
+    private static Accion Accion(string codigo, long controladorId) => new()
     {
         Codigo = codigo,
         Descripcion = "d",
         Modo = "escritura",
-        EquipoId = equipoId,
+        ControladorId = controladorId,
         Direccion = "DB1.DBX0.0",
         TipoDireccion = "S7Bit",
         Valor = 1,

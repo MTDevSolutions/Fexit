@@ -1,23 +1,23 @@
 namespace Domain.Entities;
 
 /// <summary>
-/// Una condición del equipo y los valores con los que se considera en condición.
+/// Una condición del controlador y los valores con los que se considera en condición.
 ///
-/// Cuelga del EQUIPO y no de la acción, y es la decisión de diseño de §4.2. Los usan los dos lados:
-/// la escritura los evalúa como precondición y aborta antes de escribir, y la lectura los devuelve
-/// como tabla para contestar "¿por qué no arranca la bomba?". Si cada acción llevara su propia
-/// lista, "arrancar bomba 3" y "estado de bomba 3" tendrían dos listas de lo mismo, y el día que se
-/// agrega un enclavamiento se actualiza una y se olvida la otra: el diagnóstico informaría los tres
-/// viejos y le afirmaría al usuario, con total seguridad, que está todo en condición. Con una sola
-/// lista por equipo no pueden divergir, porque son la misma fila.
+/// Cuelga del CONTROLADOR y no de la acción, y es la decisión de diseño de §4.2. Los usan los dos
+/// lados: la escritura los evalúa como precondición y aborta antes de escribir, y la lectura los
+/// devuelve como tabla para contestar "¿por qué no arranca la bomba?". Si cada acción llevara su
+/// propia lista, "arrancar bomba 3" y "estado de bomba 3" tendrían dos listas de lo mismo, y el día
+/// que se agrega un enclavamiento se actualiza una y se olvida la otra: el diagnóstico informaría los
+/// tres viejos y le afirmaría al usuario, con total seguridad, que está todo en condición. Con una
+/// sola lista por controlador no pueden divergir, porque son la misma fila.
 /// </summary>
 public class Enclavamiento
 {
     public long Id { get; set; }
-    public long EquipoId { get; set; }
-    public Equipo? Equipo { get; set; }
+    public long ControladorId { get; set; }
+    public Controlador? Controlador { get; set; }
 
-    /// <summary>Dirección cruda en el equipo. Nunca sale de Fexit, ni en un mensaje de error.</summary>
+    /// <summary>Dirección cruda en el controlador. Nunca sale de Fexit, ni en un mensaje de error.</summary>
     public string Direccion { get; set; } = default!;
 
     /// <summary>Qué área/registro leer: S7Bit, HoldingRegister, Coil, etc.</summary>
