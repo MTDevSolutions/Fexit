@@ -57,7 +57,10 @@ public class RenombreControladorTests : IDisposable
         Assert.Equal("PLC Porteria", controlador.Nombre);
         Assert.Equal("192.168.226.103", controlador.Ip);
 
+        // Desde el 2026-09-17 la acción cuelga del equipo, así que la relación que este test cuida
+        // sigue existiendo pero en dos saltos: acción → equipo → controlador.
         var accion = ctxNuevo.Acciones.Single();
-        Assert.Equal(controlador.Id, accion.ControladorId);
+        var equipo = ctxNuevo.Equipos.Single(e => e.Id == accion.EquipoId);
+        Assert.Equal(controlador.Id, equipo.ControladorId);
     }
 }

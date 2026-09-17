@@ -12,8 +12,8 @@ public interface ICatalogoRepository
     Task<IReadOnlyList<ControladorDto>> ListarControladoresAsync(CancellationToken ct);
     Task BorrarControladorAsync(long id, CancellationToken ct);
 
-    Task<long> CrearEnclavamientoAsync(long controladorId, EnclavamientoRequest req, CancellationToken ct);
-    Task<IReadOnlyList<EnclavamientoDto>> ListarEnclavamientosAsync(long controladorId, CancellationToken ct);
+    Task<long> CrearEnclavamientoAsync(long equipoId, EnclavamientoRequest req, CancellationToken ct);
+    Task<IReadOnlyList<EnclavamientoDto>> ListarEnclavamientosAsync(long equipoId, CancellationToken ct);
     Task BorrarEnclavamientoAsync(long id, CancellationToken ct);
 
     Task<long> CrearAccionAsync(AccionRequest req, CancellationToken ct);

@@ -34,11 +34,19 @@ public class AccionConfiguration : IEntityTypeConfiguration<Accion>
         // de esta columna lo dueña C#: la propiedad nace en false y cada alta la setea explícita.
         b.Property(a => a.Habilitada);
 
-        b.HasOne(a => a.Controlador).WithMany()
-            .HasForeignKey(a => a.ControladorId).OnDelete(DeleteBehavior.Restrict);
+        // Restrict y no Cascade, igual que cuando colgaba del controlador: borrar un equipo no puede
+        // llevarse en silencio sus acciones, que son las probadas contra el fierro. Que falle y que
+        // alguien mire. Es la diferencia deliberada con el enclavamiento, que sí va en Cascade: ése
+        // se recarga, una acción borrada se nota recién cuando Dixit la pide y ya no está.
+        b.HasOne(a => a.Equipo).WithMany()
+            .HasForeignKey(a => a.EquipoId).OnDelete(DeleteBehavior.Restrict);
 
         // El codigo es lo que manda Dixit: único, o "abrir_barrera" podría resolver a dos filas
         // distintas y la ejecución sería no determinista.
         b.HasIndex(a => a.Codigo).IsUnique().HasDatabaseName("IX_Acciones_Codigo");
+
+        // Con nombre propio y no el que EF le pone a la FK: "¿qué acciones tiene este equipo?" es la
+        // pregunta del ABM y la que decide si un equipo se puede borrar.
+        b.HasIndex(a => a.EquipoId).HasDatabaseName("IX_Acciones_Equipo");
     }
 }

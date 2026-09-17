@@ -48,10 +48,15 @@ public class ServicioAccionesTests
         string modo, string tipoEquipo = CteFexit.TipoEquipoPlc, string? definicion = null) =>
         new(new Accion
         {
-            Codigo = "abrir_barrera", Descripcion = "d", Modo = modo, ControladorId = 1,
+            Codigo = "abrir_barrera", Descripcion = "d", Modo = modo, EquipoId = 1,
             Direccion = "DB1.DBX0.0", TipoDireccion = CteFexit.S7Bit, Valor = 1,
             UsaEnclavamientos = false, Habilitada = true, DefinicionParametrosJson = definicion,
-        }, Controlador(tipoEquipo), []);
+        }, Equipo(), Controlador(tipoEquipo), []);
+
+    private static Equipo Equipo() => new()
+    {
+        Id = 1, Nombre = "Barrera 1", Descripcion = "Barrera de ingreso", SectorId = 1, ControladorId = 1,
+    };
 
     [Fact]
     public async Task ConElModoCorrecto_Ejecuta()

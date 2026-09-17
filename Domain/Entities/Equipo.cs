@@ -27,4 +27,7 @@ public class Equipo
     public Controlador? Controlador { get; set; }
 
     public List<Estado> Estados { get; set; } = [];
+
+    /// <summary>Sus precondiciones. Las acciones de este equipo evalúan éstas y ninguna otra.</summary>
+    public List<Enclavamiento> Enclavamientos { get; set; } = [];
 }

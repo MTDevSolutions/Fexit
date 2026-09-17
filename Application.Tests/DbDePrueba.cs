@@ -1,3 +1,4 @@
+using Domain.Entities;
 using Infrastructure.Data;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -26,6 +27,31 @@ public sealed class DbDePrueba : IDisposable
 
     public FexitDbContext CrearContext() =>
         new(new DbContextOptionsBuilder<FexitDbContext>().UseSqlite(ConnectionString).Options);
+
+    /// <summary>
+    /// Cuelga un equipo de un controlador ya creado, con un sector compartido. Desde el 2026-09-17 los
+    /// enclavamientos y las acciones cuelgan del EQUIPO, y el ABM de equipos todavía no existe: hasta
+    /// que exista, los tests del catálogo siembran el equipo por acá en vez de por HTTP.
+    /// </summary>
+    public long SembrarEquipo(long controladorId, string nombre = "Equipo de prueba")
+    {
+        using var ctx = CrearContext();
+        var sector = ctx.Sectores.FirstOrDefault();
+        if (sector is null)
+        {
+            sector = new Sector { Nombre = "General", Orden = 0 };
+            ctx.Sectores.Add(sector);
+            ctx.SaveChanges();
+        }
+
+        var equipo = new Equipo
+        {
+            Nombre = nombre, Descripcion = "d", SectorId = sector.Id, ControladorId = controladorId,
+        };
+        ctx.Equipos.Add(equipo);
+        ctx.SaveChanges();
+        return equipo.Id;
+    }
 
     public void Dispose() => _ancla.Dispose();
 }

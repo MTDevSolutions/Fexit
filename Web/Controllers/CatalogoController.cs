@@ -32,15 +32,17 @@ public class CatalogoController(ICatalogoRepository repository) : ControllerBase
         return NoContent();
     }
 
-    [HttpGet("controladores/{controladorId:long}/enclavamientos")]
+    // Cuelgan del EQUIPO y ya no del controlador (spec 2026-09-17 §2.2): "el portón de playa está
+    // abierto" es una precondición de la barrera, no del PLC que además atiende al radar.
+    [HttpGet("equipos/{equipoId:long}/enclavamientos")]
     public async Task<ActionResult<IReadOnlyList<EnclavamientoDto>>> ListarEnclavamientos(
-        long controladorId, CancellationToken ct) =>
-        Ok(await repository.ListarEnclavamientosAsync(controladorId, ct));
+        long equipoId, CancellationToken ct) =>
+        Ok(await repository.ListarEnclavamientosAsync(equipoId, ct));
 
-    [HttpPost("controladores/{controladorId:long}/enclavamientos")]
+    [HttpPost("equipos/{equipoId:long}/enclavamientos")]
     public async Task<ActionResult<long>> CrearEnclavamiento(
-        long controladorId, [FromBody] EnclavamientoRequest req, CancellationToken ct) =>
-        Ok(await repository.CrearEnclavamientoAsync(controladorId, req, ct));
+        long equipoId, [FromBody] EnclavamientoRequest req, CancellationToken ct) =>
+        Ok(await repository.CrearEnclavamientoAsync(equipoId, req, ct));
 
     [HttpDelete("enclavamientos/{id:long}")]
     public async Task<ActionResult> BorrarEnclavamiento(long id, CancellationToken ct)

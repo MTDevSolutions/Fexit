@@ -15,15 +15,20 @@ public class CatalogoAbmTests
     private static ControladorRequest Controlador(string nombre = "bomba3", string protocolo = CteFexit.ProtocoloSiemensS7) =>
         new(nombre, CteFexit.TipoEquipoPlc, "10.0.0.20", 102, protocolo, 0, 1);
 
-    private static AccionRequest Escritura(long controladorId, string codigo = "arrancar_bomba3") =>
-        new(codigo, "Arranca la bomba", CteFexit.ModoEscritura, controladorId,
+    private static AccionRequest Escritura(long equipoId, string codigo = "arrancar_bomba3") =>
+        new(codigo, "Arranca la bomba", CteFexit.ModoEscritura, equipoId,
             "DB1.DBX0.0", CteFexit.S7Bit, 1, true, true);
 
-    private static AccionRequest Lectura(long controladorId, string codigo = "estado_bomba3") =>
-        new(codigo, "Estado de la bomba", CteFexit.ModoLectura, controladorId, null, null, null, true, true);
+    private static AccionRequest Lectura(long equipoId, string codigo = "estado_bomba3") =>
+        new(codigo, "Estado de la bomba", CteFexit.ModoLectura, equipoId, null, null, null, true, true);
 
     private static long CrearControlador(DbDePrueba prueba, ControladorRequest? req = null) =>
         Valor<long>(Controller(prueba).CrearControlador(req ?? Controlador(), default).GetAwaiter().GetResult());
+
+    // El controlador y su equipo, que es de quien cuelgan enclavamientos y acciones. El ABM de
+    // equipos llega en la tarea siguiente; hasta entonces se siembra por EF.
+    private static long CrearEquipo(DbDePrueba prueba) =>
+        prueba.SembrarEquipo(CrearControlador(prueba), "Bomba del silo 3");
 
     private static T Valor<T>(ActionResult<T> resultado) =>
         (T)((ObjectResult)resultado.Result!).Value!;
@@ -104,15 +109,15 @@ public class CatalogoAbmTests
     }
 
     [Fact]
-    public async Task UnEnclavamientoSeCuelgaDelControlador()
+    public async Task UnEnclavamientoSeCuelgaDelEquipo()
     {
         using var prueba = new DbDePrueba();
-        var controladorId = CrearControlador(prueba);
+        var equipoId = CrearEquipo(prueba);
 
         await Controller(prueba).CrearEnclavamiento(
-            controladorId, new EnclavamientoRequest("DB1.DBX1.0", CteFexit.S7Bit, "Portón", [1], 1), default);
+            equipoId, new EnclavamientoRequest("DB1.DBX1.0", CteFexit.S7Bit, "Portón", [1], 1), default);
 
-        var lista = Valor(await Controller(prueba).ListarEnclavamientos(controladorId, default));
+        var lista = Valor(await Controller(prueba).ListarEnclavamientos(equipoId, default));
         Assert.Equal("Portón", Assert.Single(lista).Nombre);
     }
 
@@ -123,15 +128,15 @@ public class CatalogoAbmTests
         // de condición: la escritura quedaría bloqueada para siempre y nadie sabría por qué. Es
         // mejor que no entre.
         using var prueba = new DbDePrueba();
-        var controladorId = CrearControlador(prueba);
+        var equipoId = CrearEquipo(prueba);
 
         await Assert.ThrowsAsync<ConfigInvalidaException>(
             () => Controller(prueba).CrearEnclavamiento(
-                controladorId, new EnclavamientoRequest("DB1.DBX1.0", CteFexit.S7Bit, "Portón", [], 1), default));
+                equipoId, new EnclavamientoRequest("DB1.DBX1.0", CteFexit.S7Bit, "Portón", [], 1), default));
     }
 
     [Fact]
-    public async Task UnEnclavamientoDeUnControladorQueNoExisteSeRechaza()
+    public async Task UnEnclavamientoDeUnEquipoQueNoExisteSeRechaza()
     {
         using var prueba = new DbDePrueba();
 
@@ -144,8 +149,8 @@ public class CatalogoAbmTests
     public async Task UnaEscrituraSinDireccionSeRechaza()
     {
         using var prueba = new DbDePrueba();
-        var controladorId = CrearControlador(prueba);
-        var sinDireccion = Escritura(controladorId) with { Direccion = null };
+        var equipoId = CrearEquipo(prueba);
+        var sinDireccion = Escritura(equipoId) with { Direccion = null };
 
         await Assert.ThrowsAsync<ConfigInvalidaException>(
             () => Controller(prueba).CrearAccion(sinDireccion, default));
@@ -157,8 +162,8 @@ public class CatalogoAbmTests
         // InputRegister no se puede escribir. Cargarla dejaría una fila que falla recién al
         // ejecutarse, con un mensaje del driver que no dice que el problema es la carga.
         using var prueba = new DbDePrueba();
-        var controladorId = CrearControlador(prueba);
-        var mala = Escritura(controladorId) with { TipoDireccion = CteFexit.InputRegister };
+        var equipoId = CrearEquipo(prueba);
+        var mala = Escritura(equipoId) with { TipoDireccion = CteFexit.InputRegister };
 
         await Assert.ThrowsAsync<ConfigInvalidaException>(() => Controller(prueba).CrearAccion(mala, default));
     }
@@ -166,11 +171,11 @@ public class CatalogoAbmTests
     [Fact]
     public async Task UnaLecturaNoNecesitaDireccionNiValor()
     {
-        // Una lectura lee los enclavamientos del controlador: no tiene dirección propia.
+        // Una lectura lee los enclavamientos del equipo: no tiene dirección propia.
         using var prueba = new DbDePrueba();
-        var controladorId = CrearControlador(prueba);
+        var equipoId = CrearEquipo(prueba);
 
-        await Controller(prueba).CrearAccion(Lectura(controladorId), default);
+        await Controller(prueba).CrearAccion(Lectura(equipoId), default);
 
         Assert.Single(Valor(await Controller(prueba).ListarAcciones(default)));
     }
@@ -179,11 +184,11 @@ public class CatalogoAbmTests
     public async Task DosAccionesConElMismoCodigoSeRechaza()
     {
         using var prueba = new DbDePrueba();
-        var controladorId = CrearControlador(prueba);
-        await Controller(prueba).CrearAccion(Escritura(controladorId), default);
+        var equipoId = CrearEquipo(prueba);
+        await Controller(prueba).CrearAccion(Escritura(equipoId), default);
 
         await Assert.ThrowsAsync<ConfigInvalidaException>(
-            () => Controller(prueba).CrearAccion(Escritura(controladorId), default));
+            () => Controller(prueba).CrearAccion(Escritura(equipoId), default));
     }
 
     [Fact]
@@ -191,42 +196,48 @@ public class CatalogoAbmTests
     {
         // El ABM la sigue listando (hay que poder volver a habilitarla); GET /acciones no.
         using var prueba = new DbDePrueba();
-        var controladorId = CrearControlador(prueba);
-        await Controller(prueba).CrearAccion(Escritura(controladorId), default);
+        var equipoId = CrearEquipo(prueba);
+        await Controller(prueba).CrearAccion(Escritura(equipoId), default);
         var id = Valor(await Controller(prueba).ListarAcciones(default)).Single().Id;
 
-        await Controller(prueba).EditarAccion(id, Escritura(controladorId) with { Habilitada = false }, default);
+        await Controller(prueba).EditarAccion(id, Escritura(equipoId) with { Habilitada = false }, default);
 
         Assert.Single(Valor(await Controller(prueba).ListarAcciones(default)));
         Assert.Empty(await new AccionRepository(prueba.CrearContext()).ListarAsync(default));
     }
 
     [Fact]
-    public async Task BorrarUnControladorConAccionesSeRechaza()
+    public async Task BorrarUnControladorConEquiposSeRechaza()
     {
-        // FK Restrict: borrarlo dejaría acciones apuntando a la nada, y Dixit las seguiría ofreciendo
-        // hasta que alguien las ejecute. Primero se borran las acciones.
+        // FK Restrict: borrarlo dejaría equipos apuntando a la nada y, con ellos, sus acciones —que
+        // Dixit seguiría ofreciendo hasta que alguien las ejecute— y sus enclavamientos. Desde el
+        // 2026-09-17 lo que cuelga del controlador es el equipo, así que el aviso habla de equipos.
         using var prueba = new DbDePrueba();
-        var controladorId = CrearControlador(prueba);
-        await Controller(prueba).CrearAccion(Escritura(controladorId), default);
+        var equipoId = CrearEquipo(prueba);
+        await Controller(prueba).CrearAccion(Escritura(equipoId), default);
 
-        await Assert.ThrowsAsync<ConfigInvalidaException>(
-            () => Controller(prueba).BorrarControlador(controladorId, default));
+        var ex = await Assert.ThrowsAsync<ConfigInvalidaException>(
+            () => Controller(prueba).BorrarControlador(ControladorDe(prueba, equipoId), default));
+
+        Assert.Contains("equipos", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public async Task BorrarUnControladorSinAccionesSeLlevaSusEnclavamientos()
+    public async Task BorrarUnControladorSinEquiposSeDeja()
     {
         using var prueba = new DbDePrueba();
         var controladorId = CrearControlador(prueba);
-        await Controller(prueba).CrearEnclavamiento(
-            controladorId, new EnclavamientoRequest("DB1.DBX1.0", CteFexit.S7Bit, "Portón", [1], 1), default);
 
         await Controller(prueba).BorrarControlador(controladorId, default);
 
         using var ctx = prueba.CrearContext();
         Assert.Empty(ctx.Controladores);
-        Assert.Empty(ctx.Enclavamientos);
+    }
+
+    private static long ControladorDe(DbDePrueba prueba, long equipoId)
+    {
+        using var ctx = prueba.CrearContext();
+        return ctx.Equipos.Single(e => e.Id == equipoId).ControladorId;
     }
 
     [Fact]

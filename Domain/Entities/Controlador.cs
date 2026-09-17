@@ -43,6 +43,4 @@ public class Controlador
 
     /// <summary>Sólo Siemens. 0 en el resto.</summary>
     public int Slot { get; set; }
-
-    public List<Enclavamiento> Enclavamientos { get; set; } = [];
 }

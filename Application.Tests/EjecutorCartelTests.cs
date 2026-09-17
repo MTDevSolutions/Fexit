@@ -27,9 +27,15 @@ public class EjecutorCartelTests
         Puerto = 10001, Protocolo = CteFexit.ProtocoloHuiduSdk,
     };
 
+    private static Equipo Equipo() => new()
+    {
+        Id = 2, Nombre = "Cartel de ingreso", Descripcion = "Cartel LED de portería",
+        SectorId = 1, ControladorId = 2,
+    };
+
     private static Accion Escritura(string? config = null) => new()
     {
-        Codigo = "cartel_ingreso_mensaje", Descripcion = "d", Modo = CteFexit.ModoEscritura, ControladorId = 2,
+        Codigo = "cartel_ingreso_mensaje", Descripcion = "d", Modo = CteFexit.ModoEscritura, EquipoId = 2,
         Habilitada = true, ConfigJson = config,
     };
 
@@ -41,7 +47,7 @@ public class EjecutorCartelTests
     public async Task TextoLibre_MandaElTextoYElColor()
     {
         var transporte = new TransporteFalso();
-        var accion = new AccionAEjecutar(Escritura(), Cartel(), [], new ValoresParametros("Hola bienvenido", "amarillo", null));
+        var accion = new AccionAEjecutar(Escritura(), Equipo(), Cartel(), [], new ValoresParametros("Hola bienvenido", "amarillo", null));
 
         var r = await new EjecutorCartel(transporte).EjecutarAsync(accion, default);
 
@@ -61,7 +67,7 @@ public class EjecutorCartelTests
         var transporte = new TransporteFalso();
 
         var r = await new EjecutorCartel(transporte).EjecutarAsync(
-            new AccionAEjecutar(Escritura(config), Cartel(), []), default);
+            new AccionAEjecutar(Escritura(config), Equipo(), Cartel(), []), default);
 
         Assert.Equal(detalle, r.Detalle);
         Assert.Single(transporte.Enviados);
@@ -73,7 +79,7 @@ public class EjecutorCartelTests
         var transporte = new TransporteFalso();
 
         await Assert.ThrowsAsync<ConfigInvalidaException>(() => new EjecutorCartel(transporte)
-            .EjecutarAsync(new AccionAEjecutar(Escritura(), Cartel(), []), default));
+            .EjecutarAsync(new AccionAEjecutar(Escritura(), Equipo(), Cartel(), []), default));
 
         Assert.Empty(transporte.Enviados);
     }
@@ -82,7 +88,7 @@ public class EjecutorCartelTests
     public async Task SiElCartelNoConfirma_EsEquipoInalcanzableSinFiltrarLaIp()
     {
         var transporte = new TransporteFalso(new TimeoutException("10.0.0.30 no contestó"));
-        var accion = new AccionAEjecutar(Escritura(), Cartel(), [], new ValoresParametros("Hola", "verde", null));
+        var accion = new AccionAEjecutar(Escritura(), Equipo(), Cartel(), [], new ValoresParametros("Hola", "verde", null));
 
         var ex = await Assert.ThrowsAsync<EquipoInalcanzableException>(
             () => new EjecutorCartel(transporte).EjecutarAsync(accion, default));
@@ -97,6 +103,6 @@ public class EjecutorCartelTests
         accion.Modo = CteFexit.ModoLectura;
 
         await Assert.ThrowsAsync<ConfigInvalidaException>(() => new EjecutorCartel(new TransporteFalso())
-            .EjecutarAsync(new AccionAEjecutar(accion, Cartel(), []), default));
+            .EjecutarAsync(new AccionAEjecutar(accion, Equipo(), Cartel(), []), default));
     }
 }

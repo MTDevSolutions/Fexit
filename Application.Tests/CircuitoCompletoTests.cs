@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using Application.Constantes;
 using Application.Dtos;
+using Domain.Entities;
+using Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,6 +32,33 @@ public class CircuitoCompletoTests : IClassFixture<FexitEnMemoria>
         return cliente;
     }
 
+    /// <summary>
+    /// El equipo del que cuelgan la acción y los enclavamientos. Va por EF y no por HTTP porque el
+    /// ABM de equipos todavía no existe; lo que este test cuida es el circuito de EJECUCIÓN, que
+    /// sigue yendo de punta a punta por HTTP.
+    /// </summary>
+    private long SembrarEquipo(long controladorId, string nombre)
+    {
+        using var scope = _app.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<FexitDbContext>();
+
+        var sector = ctx.Sectores.FirstOrDefault();
+        if (sector is null)
+        {
+            sector = new Sector { Nombre = "General", Orden = 0 };
+            ctx.Sectores.Add(sector);
+            ctx.SaveChanges();
+        }
+
+        var equipo = new Equipo
+        {
+            Nombre = nombre, Descripcion = "d", SectorId = sector.Id, ControladorId = controladorId,
+        };
+        ctx.Equipos.Add(equipo);
+        ctx.SaveChanges();
+        return equipo.Id;
+    }
+
     [Fact]
     public async Task SinLaClave_NingunEndpointContesta()
     {
@@ -48,10 +77,11 @@ public class CircuitoCompletoTests : IClassFixture<FexitEnMemoria>
 
         var controladorId = await Crear<long>(cliente, "/catalogo/controladores", new ControladorRequest(
             $"bomba_{sufijo}", CteFexit.TipoEquipoPlc, "10.0.0.50", 502, CteFexit.ProtocoloSimulado, 0, 0));
+        var equipoId = SembrarEquipo(controladorId, "equipo_" + sufijo);
 
         var codigo = $"arrancar_{sufijo}";
         await Crear<long>(cliente, "/catalogo/acciones", new AccionRequest(
-            codigo, "Arranca la bomba", CteFexit.ModoEscritura, controladorId,
+            codigo, "Arranca la bomba", CteFexit.ModoEscritura, equipoId,
             "40001", CteFexit.HoldingRegister, 1, UsaEnclavamientos: false, Habilitada: true));
 
         // Aparece en el catálogo publicado, que es lo que Dixit lee para el alta.
@@ -77,9 +107,10 @@ public class CircuitoCompletoTests : IClassFixture<FexitEnMemoria>
 
         var controladorId = await Crear<long>(cliente, "/catalogo/controladores", new ControladorRequest(
             $"barrera_{sufijo}", CteFexit.TipoEquipoPlc, "10.0.0.51", 502, CteFexit.ProtocoloSimulado, 0, 0));
+        var equipoId = SembrarEquipo(controladorId, "equipo_" + sufijo);
         var codigo = $"abrir_{sufijo}";
         await Crear<long>(cliente, "/catalogo/acciones", new AccionRequest(
-            codigo, "Abre la barrera", CteFexit.ModoEscritura, controladorId,
+            codigo, "Abre la barrera", CteFexit.ModoEscritura, equipoId,
             "1", CteFexit.Coil, 1, UsaEnclavamientos: false, Habilitada: true));
 
         var respuesta = await cliente.PostAsJsonAsync(
@@ -108,12 +139,13 @@ public class CircuitoCompletoTests : IClassFixture<FexitEnMemoria>
 
         var controladorId = await Crear<long>(cliente, "/catalogo/controladores", new ControladorRequest(
             $"silo_{sufijo}", CteFexit.TipoEquipoPlc, "10.0.0.52", 502, CteFexit.ProtocoloSimulado, 0, 0));
-        await Crear<long>(cliente, $"/catalogo/controladores/{controladorId}/enclavamientos",
+        var equipoId = SembrarEquipo(controladorId, "equipo_" + sufijo);
+        await Crear<long>(cliente, $"/catalogo/equipos/{equipoId}/enclavamientos",
             new EnclavamientoRequest("40010", CteFexit.HoldingRegister, "Portón de playa", [1], 1));
 
         var codigo = $"estado_{sufijo}";
         await Crear<long>(cliente, "/catalogo/acciones", new AccionRequest(
-            codigo, "Estado del silo", CteFexit.ModoLectura, controladorId,
+            codigo, "Estado del silo", CteFexit.ModoLectura, equipoId,
             null, null, null, UsaEnclavamientos: true, Habilitada: true));
 
         var respuesta = await cliente.PostAsJsonAsync(
@@ -138,12 +170,13 @@ public class CircuitoCompletoTests : IClassFixture<FexitEnMemoria>
 
         var controladorId = await Crear<long>(cliente, "/catalogo/controladores", new ControladorRequest(
             $"bomba2_{sufijo}", CteFexit.TipoEquipoPlc, "10.0.0.53", 502, CteFexit.ProtocoloSimulado, 0, 0));
-        await Crear<long>(cliente, $"/catalogo/controladores/{controladorId}/enclavamientos",
+        var equipoId = SembrarEquipo(controladorId, "equipo_" + sufijo);
+        await Crear<long>(cliente, $"/catalogo/equipos/{equipoId}/enclavamientos",
             new EnclavamientoRequest("40020", CteFexit.HoldingRegister, "Térmica", [1], 1));
 
         var codigo = $"arrancar2_{sufijo}";
         await Crear<long>(cliente, "/catalogo/acciones", new AccionRequest(
-            codigo, "Arranca", CteFexit.ModoEscritura, controladorId,
+            codigo, "Arranca", CteFexit.ModoEscritura, equipoId,
             "40021", CteFexit.HoldingRegister, 1, UsaEnclavamientos: true, Habilitada: true));
 
         var respuesta = await cliente.PostAsJsonAsync(
@@ -163,9 +196,10 @@ public class CircuitoCompletoTests : IClassFixture<FexitEnMemoria>
 
         var controladorId = await Crear<long>(cliente, "/catalogo/controladores", new ControladorRequest(
             $"caido_{sufijo}", CteFexit.TipoEquipoPlc, "10.255.255.255", 502, CteFexit.ProtocoloSimulado, 0, 0));
+        var equipoId = SembrarEquipo(controladorId, "equipo_" + sufijo);
         var codigo = $"tocar_{sufijo}";
         await Crear<long>(cliente, "/catalogo/acciones", new AccionRequest(
-            codigo, "Toca algo", CteFexit.ModoEscritura, controladorId,
+            codigo, "Toca algo", CteFexit.ModoEscritura, equipoId,
             "1", CteFexit.Coil, 1, UsaEnclavamientos: false, Habilitada: true));
 
         var respuesta = await cliente.PostAsJsonAsync(

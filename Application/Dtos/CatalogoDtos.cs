@@ -22,14 +22,14 @@ public record EnclavamientoRequest(
     string Direccion, string TipoDireccion, string Nombre, List<int> ValoresOk, int Orden);
 
 public record EnclavamientoDto(
-    long Id, long ControladorId, string Direccion, string TipoDireccion, string Nombre, List<int> ValoresOk, int Orden);
+    long Id, long EquipoId, string Direccion, string TipoDireccion, string Nombre, List<int> ValoresOk, int Orden);
 
 public record AccionRequest(
-    string Codigo, string Descripcion, string Modo, long ControladorId,
+    string Codigo, string Descripcion, string Modo, long EquipoId,
     string? Direccion, string? TipoDireccion, int? Valor, bool UsaEnclavamientos, bool Habilitada,
     string? DefinicionParametrosJson = null, string? ConfigJson = null);
 
 public record AccionCatalogoDto(
-    long Id, string Codigo, string Descripcion, string Modo, long ControladorId,
+    long Id, string Codigo, string Descripcion, string Modo, long EquipoId,
     string? Direccion, string? TipoDireccion, int? Valor, bool UsaEnclavamientos, bool Habilitada,
     string? DefinicionParametrosJson = null, string? ConfigJson = null);

@@ -22,7 +22,7 @@ public class EjecutorPlcTests
     public async Task ElEquipoQueNoContesta_CortaPorElTimeoutConfigurado()
     {
         var (ejecutor, _) = Armar(new DriverFalso { CuelgaAlConectar = true }, timeoutMs: 150);
-        var accion = new AccionAEjecutar(Lectura(), Controlador(), [], null);
+        var accion = new AccionAEjecutar(Lectura(), Equipo(), Controlador(), [], null);
 
         var reloj = Stopwatch.StartNew();
         await Assert.ThrowsAsync<EquipoInalcanzableException>(() => ejecutor.EjecutarAsync(accion, default));
@@ -42,7 +42,7 @@ public class EjecutorPlcTests
     public async Task SiCancelaElCaller_SePropagaYNoSeDisfrazaDeEquipoInalcanzable()
     {
         var (ejecutor, _) = Armar(new DriverFalso { CuelgaAlConectar = true });
-        var accion = new AccionAEjecutar(Lectura(), Controlador(), [], null);
+        var accion = new AccionAEjecutar(Lectura(), Equipo(), Controlador(), [], null);
         using var cancelaElCaller = new CancellationTokenSource(150);
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
@@ -55,22 +55,29 @@ public class EjecutorPlcTests
         Puerto = 102, Protocolo = CteFexit.ProtocoloSiemensS7, Rack = 0, Slot = 1,
     };
 
+    // La cosa física de la que habla la acción. El ejecutor se conecta por el controlador, pero los
+    // enclavamientos y las acciones cuelgan de acá desde el 2026-09-17.
+    private static Equipo Equipo() => new()
+    {
+        Id = 1, Nombre = "bomba3", Descripcion = "Bomba del silo 3", SectorId = 1, ControladorId = 1,
+    };
+
     private static Enclavamiento Enc(string nombre, string direccion, params int[] valoresOk) => new()
     {
-        ControladorId = 1, Direccion = direccion, TipoDireccion = CteFexit.S7Bit,
+        EquipoId = 1, Direccion = direccion, TipoDireccion = CteFexit.S7Bit,
         Nombre = nombre, ValoresOk = [.. valoresOk], Orden = 0,
     };
 
     private static Accion Escritura(bool usaEnclavamientos = true) => new()
     {
-        Codigo = "arrancar_bomba3", Descripcion = "d", Modo = CteFexit.ModoEscritura, ControladorId = 1,
+        Codigo = "arrancar_bomba3", Descripcion = "d", Modo = CteFexit.ModoEscritura, EquipoId = 1,
         Direccion = "DB1.DBX0.0", TipoDireccion = CteFexit.S7Bit, Valor = 1,
         UsaEnclavamientos = usaEnclavamientos, Habilitada = true,
     };
 
     private static Accion Lectura() => new()
     {
-        Codigo = "estado_bomba3", Descripcion = "d", Modo = CteFexit.ModoLectura, ControladorId = 1,
+        Codigo = "estado_bomba3", Descripcion = "d", Modo = CteFexit.ModoLectura, EquipoId = 1,
         Direccion = null, TipoDireccion = null, Valor = null,
         UsaEnclavamientos = true, Habilitada = true,
     };
@@ -86,7 +93,7 @@ public class EjecutorPlcTests
 
     private static Accion EscrituraConTiempo() => new()
     {
-        Codigo = "abrir_barrera_tiempo", Descripcion = "d", Modo = CteFexit.ModoEscritura, ControladorId = 1,
+        Codigo = "abrir_barrera_tiempo", Descripcion = "d", Modo = CteFexit.ModoEscritura, EquipoId = 1,
         Direccion = "DB1.DBX0.0", TipoDireccion = CteFexit.S7Bit, Valor = 1,
         UsaEnclavamientos = false, Habilitada = true,
         ConfigJson = """{"direccionParametro":"DB10.DBW4","tipoDireccionParametro":"S7Word"}""",
@@ -97,7 +104,7 @@ public class EjecutorPlcTests
     {
         // Cuando el PLC ve el comando, el tiempo ya tiene que estar cargado (§3.2).
         var (ejecutor, driver) = Armar();
-        var accion = new AccionAEjecutar(EscrituraConTiempo(), Controlador(), [], new ValoresParametros(null, null, 5));
+        var accion = new AccionAEjecutar(EscrituraConTiempo(), Equipo(), Controlador(), [], new ValoresParametros(null, null, 5));
 
         var resultado = await ejecutor.EjecutarAsync(accion, default);
 
@@ -113,7 +120,7 @@ public class EjecutorPlcTests
     {
         var driver = new DriverFalso { TiraAlEscribir = new IOException("se cayó") };
         var (ejecutor, _) = Armar(driver);
-        var accion = new AccionAEjecutar(EscrituraConTiempo(), Controlador(), [], new ValoresParametros(null, null, 5));
+        var accion = new AccionAEjecutar(EscrituraConTiempo(), Equipo(), Controlador(), [], new ValoresParametros(null, null, 5));
 
         await Assert.ThrowsAsync<EquipoInalcanzableException>(() => ejecutor.EjecutarAsync(accion, default));
 
@@ -128,7 +135,7 @@ public class EjecutorPlcTests
         fila.ConfigJson = null;
 
         await Assert.ThrowsAsync<ConfigInvalidaException>(() => ejecutor.EjecutarAsync(
-            new AccionAEjecutar(fila, Controlador(), [], new ValoresParametros(null, null, 5)), default));
+            new AccionAEjecutar(fila, Equipo(), Controlador(), [], new ValoresParametros(null, null, 5)), default));
 
         Assert.Empty(driver.Escrituras);
     }
@@ -144,7 +151,7 @@ public class EjecutorPlcTests
     {
         var driver = new DriverFalso().Con("DB1.DBX1.0", 1);
         var (ejecutor, _) = Armar(driver);
-        var accion = new AccionAEjecutar(Escritura(), Controlador(), [Enc("Portón", "DB1.DBX1.0", 1)]);
+        var accion = new AccionAEjecutar(Escritura(), Equipo(), Controlador(), [Enc("Portón", "DB1.DBX1.0", 1)]);
 
         var resultado = await ejecutor.EjecutarAsync(accion, default);
 
@@ -163,7 +170,7 @@ public class EjecutorPlcTests
         // después falló".
         var driver = new DriverFalso().Con("DB1.DBX1.0", 0);
         var (ejecutor, _) = Armar(driver);
-        var accion = new AccionAEjecutar(Escritura(), Controlador(), [Enc("Portón de playa", "DB1.DBX1.0", 1)]);
+        var accion = new AccionAEjecutar(Escritura(), Equipo(), Controlador(), [Enc("Portón de playa", "DB1.DBX1.0", 1)]);
 
         var resultado = await ejecutor.EjecutarAsync(accion, default);
 
@@ -177,7 +184,7 @@ public class EjecutorPlcTests
     {
         var driver = new DriverFalso().Con("a", 1).Con("b", 0).Con("c", 1);
         var (ejecutor, _) = Armar(driver);
-        var accion = new AccionAEjecutar(Escritura(), Controlador(),
+        var accion = new AccionAEjecutar(Escritura(), Equipo(), Controlador(),
             [Enc("Portón", "a", 1), Enc("Nivel", "b", 1), Enc("Térmica", "c", 1)]);
 
         var resultado = await ejecutor.EjecutarAsync(accion, default);
@@ -194,7 +201,7 @@ public class EjecutorPlcTests
         var driver = new DriverFalso().Con("DB1.DBX1.0", 0);
         var (ejecutor, _) = Armar(driver);
         var accion = new AccionAEjecutar(
-            Escritura(usaEnclavamientos: false), Controlador(), [Enc("Portón", "DB1.DBX1.0", 1)]);
+            Escritura(usaEnclavamientos: false), Equipo(), Controlador(), [Enc("Portón", "DB1.DBX1.0", 1)]);
 
         var resultado = await ejecutor.EjecutarAsync(accion, default);
 
@@ -207,7 +214,7 @@ public class EjecutorPlcTests
     {
         var driver = new DriverFalso().Con("a", 0).Con("b", 1);
         var (ejecutor, _) = Armar(driver);
-        var accion = new AccionAEjecutar(Lectura(), Controlador(),
+        var accion = new AccionAEjecutar(Lectura(), Equipo(), Controlador(),
             [Enc("Portón de playa", "a", 1), Enc("Nivel de tanque", "b", 1)]);
 
         var resultado = await ejecutor.EjecutarAsync(accion, default);
@@ -224,7 +231,7 @@ public class EjecutorPlcTests
     {
         var driver = new DriverFalso().Con("a", 1);
         var (ejecutor, _) = Armar(driver);
-        var accion = new AccionAEjecutar(Lectura(), Controlador(), [Enc("Portón", "a", 1)]);
+        var accion = new AccionAEjecutar(Lectura(), Equipo(), Controlador(), [Enc("Portón", "a", 1)]);
 
         await ejecutor.EjecutarAsync(accion, default);
 
@@ -239,7 +246,7 @@ public class EjecutorPlcTests
         // y la columna Error del comando.
         var driver = new DriverFalso { TiraAlConectar = new IOException("No route to host 10.0.0.20:102") };
         var (ejecutor, _) = Armar(driver);
-        var accion = new AccionAEjecutar(Escritura(usaEnclavamientos: false), Controlador(), []);
+        var accion = new AccionAEjecutar(Escritura(usaEnclavamientos: false), Equipo(), Controlador(), []);
 
         var ex = await Assert.ThrowsAsync<EquipoInalcanzableException>(
             () => ejecutor.EjecutarAsync(accion, default));
@@ -255,7 +262,7 @@ public class EjecutorPlcTests
         // precondición que no da: ante la duda, el actuador no se mueve.
         var driver = new DriverFalso { TiraAlLeer = new IOException("timeout") };
         var (ejecutor, _) = Armar(driver);
-        var accion = new AccionAEjecutar(Escritura(), Controlador(), [Enc("Portón", "a", 1)]);
+        var accion = new AccionAEjecutar(Escritura(), Equipo(), Controlador(), [Enc("Portón", "a", 1)]);
 
         await Assert.ThrowsAsync<EquipoInalcanzableException>(() => ejecutor.EjecutarAsync(accion, default));
 
@@ -272,7 +279,7 @@ public class EjecutorPlcTests
         accion.Direccion = null;
 
         await Assert.ThrowsAsync<ConfigInvalidaException>(
-            () => ejecutor.EjecutarAsync(new AccionAEjecutar(accion, Controlador(), []), default));
+            () => ejecutor.EjecutarAsync(new AccionAEjecutar(accion, Equipo(), Controlador(), []), default));
 
         Assert.Empty(driver.Escrituras);
     }
@@ -289,7 +296,7 @@ public class EjecutorPlcTests
         accion.TipoDireccion = CteFexit.InputRegister;
 
         await Assert.ThrowsAsync<ConfigInvalidaException>(
-            () => ejecutor.EjecutarAsync(new AccionAEjecutar(accion, Controlador(), []), default));
+            () => ejecutor.EjecutarAsync(new AccionAEjecutar(accion, Equipo(), Controlador(), []), default));
 
         Assert.Empty(driver.Escrituras);
     }
@@ -304,7 +311,7 @@ public class EjecutorPlcTests
         accion.TipoDireccion = "Profibus";
 
         await Assert.ThrowsAsync<ConfigInvalidaException>(
-            () => ejecutor.EjecutarAsync(new AccionAEjecutar(accion, Controlador(), []), default));
+            () => ejecutor.EjecutarAsync(new AccionAEjecutar(accion, Equipo(), Controlador(), []), default));
 
         Assert.Empty(driver.Escrituras);
     }
@@ -315,7 +322,7 @@ public class EjecutorPlcTests
         // La intención declarada (UsaEnclavamientos=true) no puede degradarse sola a "escribí igual".
         // Falla cerrado: el actuador no se mueve y alguien mira la fila.
         var (ejecutor, driver) = Armar();
-        var accion = new AccionAEjecutar(Escritura(usaEnclavamientos: true), Controlador(), []);
+        var accion = new AccionAEjecutar(Escritura(usaEnclavamientos: true), Equipo(), Controlador(), []);
 
         await Assert.ThrowsAsync<ConfigInvalidaException>(() => ejecutor.EjecutarAsync(accion, default));
 
@@ -329,7 +336,7 @@ public class EjecutorPlcTests
         // reintentaría contra un equipo sano y el usuario buscaría el problema en el cableado.
         var driver = new DriverFalso { TiraAlEscribir = new FormatException("Formato de dirección S7 no válido") };
         var (ejecutor, _) = Armar(driver);
-        var accion = new AccionAEjecutar(Escritura(usaEnclavamientos: false), Controlador(), []);
+        var accion = new AccionAEjecutar(Escritura(usaEnclavamientos: false), Equipo(), Controlador(), []);
 
         await Assert.ThrowsAsync<ConfigInvalidaException>(() => ejecutor.EjecutarAsync(accion, default));
     }
@@ -341,7 +348,7 @@ public class EjecutorPlcTests
         // manifiesta como "el sistema dejó de responder" a las horas, sin ninguna pista.
         var driver = new DriverFalso { TiraAlEscribir = new IOException("se cayó") };
         var (ejecutor, _) = Armar(driver);
-        var accion = new AccionAEjecutar(Escritura(usaEnclavamientos: false), Controlador(), []);
+        var accion = new AccionAEjecutar(Escritura(usaEnclavamientos: false), Equipo(), Controlador(), []);
 
         await Assert.ThrowsAnyAsync<Exception>(() => ejecutor.EjecutarAsync(accion, default));
 

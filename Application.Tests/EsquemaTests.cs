@@ -19,19 +19,38 @@ public class EsquemaTests
         Slot = 1,
     };
 
+    /// <summary>
+    /// Un sector, un controlador y su equipo: el mínimo para poder colgar un enclavamiento o una
+    /// acción, que desde el 2026-09-17 cuelgan del EQUIPO y ya no del controlador.
+    /// </summary>
+    private static Equipo SembrarEquipo(FexitDbContext ctx, string nombre = "bomba3")
+    {
+        var sector = new Sector { Nombre = "Sector de " + nombre, Orden = 1 };
+        var controlador = NuevoControlador(nombre);
+        ctx.AddRange(sector, controlador);
+        ctx.SaveChanges();
+
+        var equipo = new Equipo
+        {
+            Nombre = "Equipo " + nombre, Descripcion = "d",
+            SectorId = sector.Id, ControladorId = controlador.Id,
+        };
+        ctx.Equipos.Add(equipo);
+        ctx.SaveChanges();
+        return equipo;
+    }
+
     [Fact]
-    public void UnControladorConSusEnclavamientosYSuAccionSeGuarda()
+    public void UnEquipoConSusEnclavamientosYSuAccionSeGuarda()
     {
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
 
-        var controlador = NuevoControlador();
-        ctx.Controladores.Add(controlador);
-        ctx.SaveChanges();
+        var equipo = SembrarEquipo(ctx);
 
         ctx.Enclavamientos.Add(new Enclavamiento
         {
-            ControladorId = controlador.Id,
+            EquipoId = equipo.Id,
             Direccion = "DB1.DBX1.0",
             TipoDireccion = "S7Bit",
             Nombre = "Portón de playa",
@@ -43,7 +62,7 @@ public class EsquemaTests
             Codigo = "arrancar_bomba3",
             Descripcion = "Arranca la bomba del silo 3",
             Modo = "escritura",
-            ControladorId = controlador.Id,
+            EquipoId = equipo.Id,
             Direccion = "DB1.DBX0.0",
             TipoDireccion = "S7Bit",
             Valor = 1,
@@ -63,15 +82,13 @@ public class EsquemaTests
         // condición con más de un valor. Si el converter se rompiera, el evaluador compararía contra
         // una lista vacía y TODO daría "fuera de condición" sin ningún error visible.
         using var prueba = new DbDePrueba();
-        var controlador = NuevoControlador();
 
         using (var ctx = prueba.CrearContext())
         {
-            ctx.Controladores.Add(controlador);
-            ctx.SaveChanges();
+            var equipo = SembrarEquipo(ctx);
             ctx.Enclavamientos.Add(new Enclavamiento
             {
-                ControladorId = controlador.Id, Direccion = "40001", TipoDireccion = "HoldingRegister",
+                EquipoId = equipo.Id, Direccion = "40001", TipoDireccion = "HoldingRegister",
                 Nombre = "Selector de modo", ValoresOk = [2, 3, 5], Orden = 1,
             });
             ctx.SaveChanges();
@@ -88,50 +105,69 @@ public class EsquemaTests
         // barrera" podría ejecutar cualquiera de las dos filas.
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
-        var controlador = NuevoControlador();
-        ctx.Controladores.Add(controlador);
-        ctx.SaveChanges();
+        var equipo = SembrarEquipo(ctx);
 
-        ctx.Acciones.Add(Accion("abrir_barrera", controlador.Id));
-        ctx.Acciones.Add(Accion("abrir_barrera", controlador.Id));
+        ctx.Acciones.Add(Accion("abrir_barrera", equipo.Id));
+        ctx.Acciones.Add(Accion("abrir_barrera", equipo.Id));
 
         Assert.Throws<DbUpdateException>(() => ctx.SaveChanges());
     }
 
     [Fact]
-    public void UnaAccionSinControladorQueExista_NoSePuede()
+    public void UnaAccionSinEquipoQueExista_NoSePuede()
     {
-        // FK real, con Foreign Keys=True en la connection string: una acción que apunta a un controlador
+        // FK real, con Foreign Keys=True en la connection string: una acción que apunta a un equipo
         // inexistente no se puede ejecutar, así que no tiene por qué poder guardarse.
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
 
-        ctx.Acciones.Add(Accion("abrir_barrera", controladorId: 999));
+        ctx.Acciones.Add(Accion("abrir_barrera", equipoId: 999));
 
         Assert.Throws<DbUpdateException>(() => ctx.SaveChanges());
     }
 
     [Fact]
-    public void BorrarElControladorSeLlevaSusEnclavamientos()
+    public void BorrarElEquipoSeLlevaSusEnclavamientos()
     {
-        // Cascade: un enclavamiento sin controlador no significa nada. Y es lo que hace imposible que la
+        // Cascade: un enclavamiento sin equipo no significa nada. Y es lo que hace imposible que la
         // lista de la lectura y la de la escritura divergan (§4.2) — hay una sola.
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
-        var controlador = NuevoControlador();
-        ctx.Controladores.Add(controlador);
-        ctx.SaveChanges();
+        var equipo = SembrarEquipo(ctx);
         ctx.Enclavamientos.Add(new Enclavamiento
         {
-            ControladorId = controlador.Id, Direccion = "DB1.DBX1.0", TipoDireccion = "S7Bit",
+            EquipoId = equipo.Id, Direccion = "DB1.DBX1.0", TipoDireccion = "S7Bit",
             Nombre = "Portón", ValoresOk = [1], Orden = 1,
         });
         ctx.SaveChanges();
 
-        ctx.Controladores.Remove(controlador);
+        ctx.Equipos.Remove(equipo);
         ctx.SaveChanges();
 
         Assert.Empty(ctx.Enclavamientos);
+    }
+
+    [Fact]
+    public void BorrarElEquipoConAccionesNoSePuede()
+    {
+        // Restrict y no Cascade, al revés que el enclavamiento: un enclavamiento se vuelve a cargar,
+        // pero una acción borrada en silencio se nota recién cuando Dixit la pide y ya no está.
+        using var prueba = new DbDePrueba();
+        long equipoId;
+        using (var ctx = prueba.CrearContext())
+        {
+            var equipo = SembrarEquipo(ctx);
+            equipoId = equipo.Id;
+            ctx.Acciones.Add(Accion("abrir_barrera", equipo.Id));
+            ctx.SaveChanges();
+        }
+
+        // Contexto nuevo a propósito: con la acción trackeada, EF corta antes de llegar a la base y
+        // el test no probaría la FK, que es lo que protege al servidor de producción.
+        using var otro = prueba.CrearContext();
+        otro.Equipos.Remove(otro.Equipos.Single(e => e.Id == equipoId));
+
+        Assert.Throws<DbUpdateException>(() => otro.SaveChanges());
     }
 
     [Theory]
@@ -141,11 +177,9 @@ public class EsquemaTests
     {
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
-        var controlador = NuevoControlador();
-        ctx.Controladores.Add(controlador);
-        ctx.SaveChanges();
+        var equipo = SembrarEquipo(ctx);
 
-        var accion = Accion("una_accion", controlador.Id);
+        var accion = Accion("una_accion", equipo.Id);
         accion.Modo = modo;
         ctx.Acciones.Add(accion);
         ctx.SaveChanges();
@@ -158,11 +192,9 @@ public class EsquemaTests
     {
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
-        var controlador = NuevoControlador();
-        ctx.Controladores.Add(controlador);
-        ctx.SaveChanges();
+        var equipo = SembrarEquipo(ctx);
 
-        var accion = Accion("una_accion", controlador.Id);
+        var accion = Accion("una_accion", equipo.Id);
         accion.Modo = "borrar_todo";
         ctx.Acciones.Add(accion);
 
@@ -228,11 +260,9 @@ public class EsquemaTests
         // negocio entera. El default de esta columna lo dueña C#, no la base.
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
-        var controlador = NuevoControlador();
-        ctx.Controladores.Add(controlador);
-        ctx.SaveChanges();
+        var equipo = SembrarEquipo(ctx);
 
-        var accion = Accion("una_accion", controlador.Id);
+        var accion = Accion("una_accion", equipo.Id);
         accion.Habilitada = false;
         ctx.Acciones.Add(accion);
         ctx.SaveChanges();
@@ -241,12 +271,12 @@ public class EsquemaTests
         Assert.False(ctx.Acciones.Single().Habilitada);
     }
 
-    private static Accion Accion(string codigo, long controladorId) => new()
+    private static Accion Accion(string codigo, long equipoId) => new()
     {
         Codigo = codigo,
         Descripcion = "d",
         Modo = "escritura",
-        ControladorId = controladorId,
+        EquipoId = equipoId,
         Direccion = "DB1.DBX0.0",
         TipoDireccion = "S7Bit",
         Valor = 1,
