@@ -12,6 +12,8 @@ public class FexitDbContext(DbContextOptions<FexitDbContext> options) : DbContex
     public DbSet<Controlador> Controladores => Set<Controlador>();
     public DbSet<Enclavamiento> Enclavamientos => Set<Enclavamiento>();
     public DbSet<Accion> Acciones => Set<Accion>();
+    public DbSet<Sector> Sectores => Set<Sector>();
+    public DbSet<Equipo> Equipos => Set<Equipo>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) =>
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(FexitDbContext).Assembly);
