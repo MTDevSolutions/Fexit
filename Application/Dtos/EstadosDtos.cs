@@ -6,3 +6,9 @@ namespace Application.Dtos;
 /// necesita para armar el prompt, y lo que no sale no se filtra.
 /// </summary>
 public record EstadoPublicadoDto(string Codigo, string Nombre, string Descripcion, string Equipo, string Sector);
+
+/// <summary>
+/// Cuerpo del pedido de lectura. Sólo códigos: a diferencia de /acciones/{codigo}/ejecutar, acá no
+/// hay nada que verificar antes de leer.
+/// </summary>
+public record LeerEstadosRequest(List<string> Codigos);

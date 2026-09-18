@@ -53,6 +53,9 @@ public static class DependencyInjection
 
         services.AddScoped<IServicioAcciones, ServicioAcciones>();
 
+        // Sin estado propio, igual que EjecutorPlc: sólo usa la factory de drivers y los settings.
+        services.AddScoped<LectorEstados>();
+
         return services;
     }
 }
