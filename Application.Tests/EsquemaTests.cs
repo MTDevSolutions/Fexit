@@ -7,7 +7,7 @@ namespace Application.Tests;
 
 public class EsquemaTests
 {
-    private static Equipo NuevoEquipo(string nombre = "bomba3") => new()
+    private static Controlador NuevoControlador(string nombre = "bomba3") => new()
     {
         Nombre = nombre,
         TipoEquipo = "plc",
@@ -19,15 +19,34 @@ public class EsquemaTests
         Slot = 1,
     };
 
+    /// <summary>
+    /// Un sector, un controlador y su equipo: el mínimo para poder colgar un enclavamiento o una
+    /// acción, que desde el 2026-09-17 cuelgan del EQUIPO y ya no del controlador.
+    /// </summary>
+    private static Equipo SembrarEquipo(FexitDbContext ctx, string nombre = "bomba3")
+    {
+        var sector = new Sector { Nombre = "Sector de " + nombre, Orden = 1 };
+        var controlador = NuevoControlador(nombre);
+        ctx.AddRange(sector, controlador);
+        ctx.SaveChanges();
+
+        var equipo = new Equipo
+        {
+            Nombre = "Equipo " + nombre, Descripcion = "d",
+            SectorId = sector.Id, ControladorId = controlador.Id,
+        };
+        ctx.Equipos.Add(equipo);
+        ctx.SaveChanges();
+        return equipo;
+    }
+
     [Fact]
     public void UnEquipoConSusEnclavamientosYSuAccionSeGuarda()
     {
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
 
-        var equipo = NuevoEquipo();
-        ctx.Equipos.Add(equipo);
-        ctx.SaveChanges();
+        var equipo = SembrarEquipo(ctx);
 
         ctx.Enclavamientos.Add(new Enclavamiento
         {
@@ -63,12 +82,10 @@ public class EsquemaTests
         // condición con más de un valor. Si el converter se rompiera, el evaluador compararía contra
         // una lista vacía y TODO daría "fuera de condición" sin ningún error visible.
         using var prueba = new DbDePrueba();
-        var equipo = NuevoEquipo();
 
         using (var ctx = prueba.CrearContext())
         {
-            ctx.Equipos.Add(equipo);
-            ctx.SaveChanges();
+            var equipo = SembrarEquipo(ctx);
             ctx.Enclavamientos.Add(new Enclavamiento
             {
                 EquipoId = equipo.Id, Direccion = "40001", TipoDireccion = "HoldingRegister",
@@ -88,9 +105,7 @@ public class EsquemaTests
         // barrera" podría ejecutar cualquiera de las dos filas.
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
-        var equipo = NuevoEquipo();
-        ctx.Equipos.Add(equipo);
-        ctx.SaveChanges();
+        var equipo = SembrarEquipo(ctx);
 
         ctx.Acciones.Add(Accion("abrir_barrera", equipo.Id));
         ctx.Acciones.Add(Accion("abrir_barrera", equipo.Id));
@@ -118,9 +133,7 @@ public class EsquemaTests
         // lista de la lectura y la de la escritura divergan (§4.2) — hay una sola.
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
-        var equipo = NuevoEquipo();
-        ctx.Equipos.Add(equipo);
-        ctx.SaveChanges();
+        var equipo = SembrarEquipo(ctx);
         ctx.Enclavamientos.Add(new Enclavamiento
         {
             EquipoId = equipo.Id, Direccion = "DB1.DBX1.0", TipoDireccion = "S7Bit",
@@ -134,6 +147,29 @@ public class EsquemaTests
         Assert.Empty(ctx.Enclavamientos);
     }
 
+    [Fact]
+    public void BorrarElEquipoConAccionesNoSePuede()
+    {
+        // Restrict y no Cascade, al revés que el enclavamiento: un enclavamiento se vuelve a cargar,
+        // pero una acción borrada en silencio se nota recién cuando Dixit la pide y ya no está.
+        using var prueba = new DbDePrueba();
+        long equipoId;
+        using (var ctx = prueba.CrearContext())
+        {
+            var equipo = SembrarEquipo(ctx);
+            equipoId = equipo.Id;
+            ctx.Acciones.Add(Accion("abrir_barrera", equipo.Id));
+            ctx.SaveChanges();
+        }
+
+        // Contexto nuevo a propósito: con la acción trackeada, EF corta antes de llegar a la base y
+        // el test no probaría la FK, que es lo que protege al servidor de producción.
+        using var otro = prueba.CrearContext();
+        otro.Equipos.Remove(otro.Equipos.Single(e => e.Id == equipoId));
+
+        Assert.Throws<DbUpdateException>(() => otro.SaveChanges());
+    }
+
     [Theory]
     [InlineData("lectura")]
     [InlineData("escritura")]
@@ -141,9 +177,7 @@ public class EsquemaTests
     {
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
-        var equipo = NuevoEquipo();
-        ctx.Equipos.Add(equipo);
-        ctx.SaveChanges();
+        var equipo = SembrarEquipo(ctx);
 
         var accion = Accion("una_accion", equipo.Id);
         accion.Modo = modo;
@@ -158,9 +192,7 @@ public class EsquemaTests
     {
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
-        var equipo = NuevoEquipo();
-        ctx.Equipos.Add(equipo);
-        ctx.SaveChanges();
+        var equipo = SembrarEquipo(ctx);
 
         var accion = Accion("una_accion", equipo.Id);
         accion.Modo = "borrar_todo";
@@ -173,12 +205,12 @@ public class EsquemaTests
     public void ElCheckDeProtocoloRechazaUnProtocoloDesconocido()
     {
         // Un protocolo que ninguna factory atiende sólo falla el día que alguien ejecuta una acción
-        // de ese equipo. La base lo rechaza antes, igual que el modo.
+        // de ese controlador. La base lo rechaza antes, igual que el modo.
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
-        var equipo = NuevoEquipo();
-        equipo.Protocolo = "Profibus";
-        ctx.Equipos.Add(equipo);
+        var controlador = NuevoControlador();
+        controlador.Protocolo = "Profibus";
+        ctx.Controladores.Add(controlador);
 
         Assert.Throws<DbUpdateException>(() => ctx.SaveChanges());
     }
@@ -193,9 +225,9 @@ public class EsquemaTests
         // perdido.
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
-        var equipo = NuevoEquipo();
-        equipo.Modelo = "LOGO8";
-        ctx.Equipos.Add(equipo);
+        var controlador = NuevoControlador();
+        controlador.Modelo = "LOGO8";
+        ctx.Controladores.Add(controlador);
 
         Assert.Throws<DbUpdateException>(() => ctx.SaveChanges());
     }
@@ -212,7 +244,7 @@ public class EsquemaTests
 
         ctx.Database.Migrate();
 
-        Assert.Empty(ctx.Equipos);
+        Assert.Empty(ctx.Controladores);
         Assert.Empty(ctx.Enclavamientos);
         Assert.Empty(ctx.Acciones);
     }
@@ -228,9 +260,7 @@ public class EsquemaTests
         // negocio entera. El default de esta columna lo dueña C#, no la base.
         using var prueba = new DbDePrueba();
         using var ctx = prueba.CrearContext();
-        var equipo = NuevoEquipo();
-        ctx.Equipos.Add(equipo);
-        ctx.SaveChanges();
+        var equipo = SembrarEquipo(ctx);
 
         var accion = Accion("una_accion", equipo.Id);
         accion.Habilitada = false;

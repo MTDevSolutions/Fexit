@@ -16,14 +16,20 @@ public class CatalogoAbmParametrosTests
 
     private static CatalogoController Controller(DbDePrueba p) => new(new CatalogoRepository(p.CrearContext()));
 
-    private static long Crear(DbDePrueba p, EquipoRequest req) =>
-        (long)((ObjectResult)Controller(p).CrearEquipo(req, default).GetAwaiter().GetResult().Result!).Value!;
+    private static long Crear(DbDePrueba p, ControladorRequest req) =>
+        (long)((ObjectResult)Controller(p).CrearControlador(req, default).GetAwaiter().GetResult().Result!).Value!;
 
+    // Devuelven el id del EQUIPO: es de quien cuelga la acción desde el 2026-09-17. El controlador
+    // se crea igual, debajo, porque de él sale el TipoEquipo contra el que valida el ABM.
     private static long Cartel(DbDePrueba p) =>
-        Crear(p, new EquipoRequest("cartel_ingreso", CteFexit.TipoEquipoCartel, "10.0.0.30", 10001, CteFexit.ProtocoloHuiduSdk, 0, 0));
+        p.SembrarEquipo(
+            Crear(p, new ControladorRequest("cartel_ingreso", CteFexit.TipoEquipoCartel, "10.0.0.30", 10001, CteFexit.ProtocoloHuiduSdk, 0, 0)),
+            "Cartel de ingreso");
 
     private static long Plc(DbDePrueba p) =>
-        Crear(p, new EquipoRequest("barrera", CteFexit.TipoEquipoPlc, "10.0.0.20", 102, CteFexit.ProtocoloSiemensS7, 0, 1));
+        p.SembrarEquipo(
+            Crear(p, new ControladorRequest("barrera", CteFexit.TipoEquipoPlc, "10.0.0.20", 102, CteFexit.ProtocoloSiemensS7, 0, 1)),
+            "Barrera 1");
 
     private static AccionRequest EscrituraCartel(long equipoId, string? def, string? config) =>
         new("cartel_ingreso_mensaje", "Muestra un texto", CteFexit.ModoEscritura, equipoId,
@@ -147,11 +153,11 @@ public class CatalogoAbmParametrosTests
     }
 
     [Fact]
-    public async Task UnEquipoCartelExigeElProtocoloHuidu()
+    public async Task UnControladorCartelExigeElProtocoloHuidu()
     {
         using var p = new DbDePrueba();
-        await Assert.ThrowsAsync<ConfigInvalidaException>(() => Controller(p).CrearEquipo(
-            new EquipoRequest("c", CteFexit.TipoEquipoCartel, "10.0.0.30", 10001, CteFexit.ProtocoloSiemensS7, 0, 0), default));
+        await Assert.ThrowsAsync<ConfigInvalidaException>(() => Controller(p).CrearControlador(
+            new ControladorRequest("c", CteFexit.TipoEquipoCartel, "10.0.0.30", 10001, CteFexit.ProtocoloSiemensS7, 0, 0), default));
     }
 
     [Fact]

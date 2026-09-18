@@ -23,8 +23,9 @@ public class EnclavamientoConfiguration : IEntityTypeConfiguration<Enclavamiento
             .HasConversion(Conversores.ListaIntAJson, Conversores.ListaIntComparer)
             .HasDefaultValueSql("'[]'");
 
-        // Cascade: un enclavamiento sin equipo no significa nada, y borrar el equipo tiene que
-        // llevárselos. Es la FK que hace imposible que las dos listas de §4.2 divergan.
+        // Cascade, igual que antes del 2026-09-17, sólo que ahora contra el equipo: un enclavamiento
+        // sin equipo no significa nada, y borrar el equipo tiene que llevárselos. Es la FK que hace
+        // imposible que las dos listas de §4.2 divergan.
         b.HasOne(e => e.Equipo).WithMany(eq => eq.Enclavamientos)
             .HasForeignKey(e => e.EquipoId).OnDelete(DeleteBehavior.Cascade);
 

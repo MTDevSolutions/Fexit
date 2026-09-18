@@ -34,6 +34,7 @@ public static class DependencyInjection
 
         services.AddScoped<IAccionRepository, AccionRepository>();
         services.AddScoped<ICatalogoRepository, CatalogoRepository>();
+        services.AddScoped<IEstadoRepository, EstadoRepository>();
 
         // La factory de drivers no toca la base: fuera del if, para que no dependa de que exista
         // connection string. Singleton y no Scoped: no tiene estado propio, sólo lee el timeout de
@@ -51,6 +52,9 @@ public static class DependencyInjection
         services.AddSingleton<ITransporteCartel, TransporteCartelHuidu>();
 
         services.AddScoped<IServicioAcciones, ServicioAcciones>();
+
+        // Sin estado propio, igual que EjecutorPlc: sólo usa la factory de drivers y los settings.
+        services.AddScoped<LectorEstados>();
 
         return services;
     }

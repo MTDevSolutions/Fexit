@@ -49,22 +49,19 @@ public class AccionRepository(FexitDbContext ctx, ILogger<AccionRepository>? log
         // Deshabilitada se trata igual que inexistente: el filtro va acá y no en el llamador, así
         // ningún camino de ejecución puede olvidarse de aplicarlo.
         var accion = await ctx.Acciones.AsNoTracking()
+            .Include(a => a.Equipo).ThenInclude(e => e!.Controlador)
             .FirstOrDefaultAsync(a => a.Codigo == codigo && a.Habilitada, ct);
-        if (accion is null)
-            return null;
+        if (accion?.Equipo?.Controlador is null)
+            return null;   // Las FK Restrict lo hacen imposible; si pasa, es una BD tocada a mano.
 
-        var equipo = await ctx.Equipos.AsNoTracking().FirstOrDefaultAsync(e => e.Id == accion.EquipoId, ct);
-        if (equipo is null)
-            return null;   // FK Restrict lo hace imposible; si pasa, es una BD tocada a mano.
-
-        // Los enclavamientos son del EQUIPO (§4.2). Se traen siempre, aunque UsaEnclavamientos sea
-        // false: quién los usa y cómo lo decide el ejecutor, y traerlos igual cuesta una consulta a
-        // una tabla de tres filas.
+        // Los enclavamientos son del EQUIPO de la acción (§4.2). Se traen siempre, aunque
+        // UsaEnclavamientos sea false: quién los usa y cómo lo decide el ejecutor, y traerlos igual
+        // cuesta una consulta a una tabla de tres filas.
         var enclavamientos = await ctx.Enclavamientos.AsNoTracking()
-            .Where(e => e.EquipoId == equipo.Id)
+            .Where(e => e.EquipoId == accion.EquipoId)
             .OrderBy(e => e.Orden).ThenBy(e => e.Id)
             .ToListAsync(ct);
 
-        return new AccionAEjecutar(accion, equipo, enclavamientos);
+        return new AccionAEjecutar(accion, accion.Equipo, accion.Equipo.Controlador, enclavamientos);
     }
 }

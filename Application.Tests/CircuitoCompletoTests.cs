@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using Application.Constantes;
 using Application.Dtos;
+using Domain.Entities;
+using Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,7 +12,7 @@ using Microsoft.Extensions.Hosting;
 namespace Application.Tests;
 
 /// <summary>
-/// El circuito de §9, sin PLC: levanta la app entera, carga un equipo con Protocolo=Simulado por el
+/// El circuito de §9, sin PLC: levanta la app entera, carga un controlador con Protocolo=Simulado por el
 /// ABM y ejecuta contra él por HTTP. Prueba lo que ninguna otra prueba de este plan toca: que el
 /// middleware, el ruteo, la serialización y la BD estén bien enchufados entre sí.
 ///
@@ -30,24 +32,52 @@ public class CircuitoCompletoTests : IClassFixture<FexitEnMemoria>
         return cliente;
     }
 
+    /// <summary>
+    /// El equipo del que cuelgan la acción y los enclavamientos. Va por EF y no por HTTP porque el
+    /// ABM de equipos todavía no existe; lo que este test cuida es el circuito de EJECUCIÓN, que
+    /// sigue yendo de punta a punta por HTTP.
+    /// </summary>
+    private long SembrarEquipo(long controladorId, string nombre)
+    {
+        using var scope = _app.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<FexitDbContext>();
+
+        var sector = ctx.Sectores.FirstOrDefault();
+        if (sector is null)
+        {
+            sector = new Sector { Nombre = "General", Orden = 0 };
+            ctx.Sectores.Add(sector);
+            ctx.SaveChanges();
+        }
+
+        var equipo = new Equipo
+        {
+            Nombre = nombre, Descripcion = "d", SectorId = sector.Id, ControladorId = controladorId,
+        };
+        ctx.Equipos.Add(equipo);
+        ctx.SaveChanges();
+        return equipo.Id;
+    }
+
     [Fact]
     public async Task SinLaClave_NingunEndpointContesta()
     {
         var cliente = _app.CreateClient();
 
         Assert.Equal(HttpStatusCode.Unauthorized, (await cliente.GetAsync("/acciones")).StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await cliente.GetAsync("/catalogo/equipos")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await cliente.GetAsync("/catalogo/controladores")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await cliente.GetAsync("/health")).StatusCode);
     }
 
     [Fact]
-    public async Task CargarUnEquipoSimuladoYEjecutarUnaEscritura()
+    public async Task CargarUnControladorSimuladoYEjecutarUnaEscritura()
     {
         var cliente = ClienteConClave();
         var sufijo = Guid.NewGuid().ToString("N")[..6];
 
-        var equipoId = await Crear<long>(cliente, "/catalogo/equipos", new EquipoRequest(
+        var controladorId = await Crear<long>(cliente, "/catalogo/controladores", new ControladorRequest(
             $"bomba_{sufijo}", CteFexit.TipoEquipoPlc, "10.0.0.50", 502, CteFexit.ProtocoloSimulado, 0, 0));
+        var equipoId = SembrarEquipo(controladorId, "equipo_" + sufijo);
 
         var codigo = $"arrancar_{sufijo}";
         await Crear<long>(cliente, "/catalogo/acciones", new AccionRequest(
@@ -75,8 +105,9 @@ public class CircuitoCompletoTests : IClassFixture<FexitEnMemoria>
         var cliente = ClienteConClave();
         var sufijo = Guid.NewGuid().ToString("N")[..6];
 
-        var equipoId = await Crear<long>(cliente, "/catalogo/equipos", new EquipoRequest(
+        var controladorId = await Crear<long>(cliente, "/catalogo/controladores", new ControladorRequest(
             $"barrera_{sufijo}", CteFexit.TipoEquipoPlc, "10.0.0.51", 502, CteFexit.ProtocoloSimulado, 0, 0));
+        var equipoId = SembrarEquipo(controladorId, "equipo_" + sufijo);
         var codigo = $"abrir_{sufijo}";
         await Crear<long>(cliente, "/catalogo/acciones", new AccionRequest(
             codigo, "Abre la barrera", CteFexit.ModoEscritura, equipoId,
@@ -101,13 +132,14 @@ public class CircuitoCompletoTests : IClassFixture<FexitEnMemoria>
     public async Task UnaLecturaDevuelveLaTablaDeEnclavamientosPorHttp()
     {
         // El caso que más importa que funcione punta a punta: la tabla viaja serializada y Dixit la
-        // mete en el carril del SQL hacia la segunda pasada. Con el equipo simulado en 0 y valoresOk
+        // mete en el carril del SQL hacia la segunda pasada. Con el controlador simulado en 0 y valoresOk
         // en [1], tiene que salir "no".
         var cliente = ClienteConClave();
         var sufijo = Guid.NewGuid().ToString("N")[..6];
 
-        var equipoId = await Crear<long>(cliente, "/catalogo/equipos", new EquipoRequest(
+        var controladorId = await Crear<long>(cliente, "/catalogo/controladores", new ControladorRequest(
             $"silo_{sufijo}", CteFexit.TipoEquipoPlc, "10.0.0.52", 502, CteFexit.ProtocoloSimulado, 0, 0));
+        var equipoId = SembrarEquipo(controladorId, "equipo_" + sufijo);
         await Crear<long>(cliente, $"/catalogo/equipos/{equipoId}/enclavamientos",
             new EnclavamientoRequest("40010", CteFexit.HoldingRegister, "Portón de playa", [1], 1));
 
@@ -136,8 +168,9 @@ public class CircuitoCompletoTests : IClassFixture<FexitEnMemoria>
         var cliente = ClienteConClave();
         var sufijo = Guid.NewGuid().ToString("N")[..6];
 
-        var equipoId = await Crear<long>(cliente, "/catalogo/equipos", new EquipoRequest(
+        var controladorId = await Crear<long>(cliente, "/catalogo/controladores", new ControladorRequest(
             $"bomba2_{sufijo}", CteFexit.TipoEquipoPlc, "10.0.0.53", 502, CteFexit.ProtocoloSimulado, 0, 0));
+        var equipoId = SembrarEquipo(controladorId, "equipo_" + sufijo);
         await Crear<long>(cliente, $"/catalogo/equipos/{equipoId}/enclavamientos",
             new EnclavamientoRequest("40020", CteFexit.HoldingRegister, "Térmica", [1], 1));
 
@@ -156,13 +189,14 @@ public class CircuitoCompletoTests : IClassFixture<FexitEnMemoria>
     }
 
     [Fact]
-    public async Task ElEquipoInalcanzableDa502()
+    public async Task ElControladorInalcanzableDa502()
     {
         var cliente = ClienteConClave();
         var sufijo = Guid.NewGuid().ToString("N")[..6];
 
-        var equipoId = await Crear<long>(cliente, "/catalogo/equipos", new EquipoRequest(
+        var controladorId = await Crear<long>(cliente, "/catalogo/controladores", new ControladorRequest(
             $"caido_{sufijo}", CteFexit.TipoEquipoPlc, "10.255.255.255", 502, CteFexit.ProtocoloSimulado, 0, 0));
+        var equipoId = SembrarEquipo(controladorId, "equipo_" + sufijo);
         var codigo = $"tocar_{sufijo}";
         await Crear<long>(cliente, "/catalogo/acciones", new AccionRequest(
             codigo, "Toca algo", CteFexit.ModoEscritura, equipoId,

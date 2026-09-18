@@ -21,7 +21,7 @@ public class EjecutorPlc(IPlcDriverFactory fabrica, IOptions<FexitSettings> sett
 
     public async Task<ResultadoAccion> EjecutarAsync(AccionAEjecutar accion, CancellationToken ct)
     {
-        using var driver = fabrica.Crear(accion.Equipo);
+        using var driver = fabrica.Crear(accion.Controlador);
 
         // Un solo presupuesto para TODO el pedido, igual que TransporteCartelHuidu. Sin esto,
         // TimeoutEquipoMs sólo alimentaba el ReadTimeout/WriteTimeout del socket YA conectado y nadie

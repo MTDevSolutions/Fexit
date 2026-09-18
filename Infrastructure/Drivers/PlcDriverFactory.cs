@@ -19,18 +19,18 @@ public class PlcDriverFactory(FexitSettings settings) : IPlcDriverFactory
 {
     public PlcDriverFactory(IOptions<FexitSettings> settings) : this(settings.Value) { }
 
-    public IPlcDriver Crear(Equipo equipo) => equipo.Protocolo switch
+    public IPlcDriver Crear(Controlador controlador) => controlador.Protocolo switch
     {
         // El Modelo se pasa: es el paso que axControlBE se saltea, y por el que su columna Modelo
         // no hace nada. Un modelo desconocido tira acá, antes de tocar la red.
         CteFexit.ProtocoloSiemensS7 =>
-            new SiemensS7Driver(equipo.Ip, equipo.Puerto, equipo.Rack, equipo.Slot, equipo.Modelo,
-                                settings.TimeoutEquipoMs),
+            new SiemensS7Driver(controlador.Ip, controlador.Puerto, controlador.Rack, controlador.Slot,
+                                controlador.Modelo, settings.TimeoutEquipoMs),
         CteFexit.ProtocoloModbusTcp =>
-            new ModbusTcpDriver(equipo.Ip, equipo.Puerto, timeout: settings.TimeoutEquipoMs),
+            new ModbusTcpDriver(controlador.Ip, controlador.Puerto, timeout: settings.TimeoutEquipoMs),
         CteFexit.ProtocoloSimulado =>
-            new DriverSimulado(equipo.Ip, equipo.Puerto),
+            new DriverSimulado(controlador.Ip, controlador.Puerto),
         // El CHECK de la base ya lo impide; esto cubre una fila cargada contra una BD vieja.
-        _ => throw new NotSupportedException($"Protocolo no soportado: {equipo.Protocolo}")
+        _ => throw new NotSupportedException($"Protocolo no soportado: {controlador.Protocolo}")
     };
 }

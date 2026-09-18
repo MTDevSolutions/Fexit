@@ -15,6 +15,8 @@ namespace Application.Tests;
 public sealed class DriverFalso : IPlcDriver
 {
     private readonly Dictionary<string, byte[]> _valores = new();
+    private readonly bool _falla;
+    private readonly int _valorPorDefecto;
 
     public bool IsConnected { get; private set; }
     public bool ConectoAlgunaVez { get; private set; }
@@ -22,6 +24,20 @@ public sealed class DriverFalso : IPlcDriver
     public Exception? TiraAlConectar { get; set; }
     public Exception? TiraAlLeer { get; set; }
     public Exception? TiraAlEscribir { get; set; }
+
+    public DriverFalso() { }
+
+    /// <summary>
+    /// Para los tests de LectorEstados, que arman equipos por código y no por dirección: con
+    /// <paramref name="falla"/> simula un controlador caído (el connect tira, como haría un socket
+    /// contra una IP que no responde) y con <paramref name="valor"/> programa el mismo crudo para
+    /// cualquier dirección que no se haya cargado explícitamente con <see cref="Con"/>.
+    /// </summary>
+    public DriverFalso(bool falla, int valor)
+    {
+        _falla = falla;
+        _valorPorDefecto = valor;
+    }
 
     /// <summary>Programa lo que va a devolver una dirección. El ancho lo decide el tipo.</summary>
     public DriverFalso Con(string direccion, params byte[] datos)
@@ -41,6 +57,10 @@ public sealed class DriverFalso : IPlcDriver
     public async Task<bool> ConnectAsync(CancellationToken cancellationToken = default)
     {
         if (TiraAlConectar is not null) throw TiraAlConectar;
+        // El mensaje no importa: LectorEstados no lo mira, sólo el hecho de que falló. Lo único que
+        // le interesa a EquipoInalcanzableException del lado real es que el mensaje del socket no
+        // suba tal cual, y acá no hay socket real que lo traiga.
+        if (_falla) throw new InvalidOperationException("Controlador caído (simulado).");
         if (CuelgaAlConectar)
             await Task.Delay(Timeout.Infinite, cancellationToken);
         IsConnected = true;
@@ -58,7 +78,19 @@ public sealed class DriverFalso : IPlcDriver
                                   CancellationToken cancellationToken = default)
     {
         if (TiraAlLeer is not null) throw TiraAlLeer;
-        return Task.FromResult(_valores.TryGetValue(direccion, out var d) ? d : new byte[Math.Max(1, longitud)]);
+        if (_valores.TryGetValue(direccion, out var d)) return Task.FromResult(d);
+        return Task.FromResult(IntABytes(_valorPorDefecto, Math.Max(1, longitud)));
+    }
+
+    private static byte[] IntABytes(int valor, int longitud)
+    {
+        var datos = new byte[longitud];
+        for (var i = longitud - 1; i >= 0; i--)
+        {
+            datos[i] = (byte)(valor & 0xFF);
+            valor >>= 8;
+        }
+        return datos;
     }
 
     public Task WriteAsync(TipoDireccionPlc tipo, string direccion, byte[] datos)
@@ -74,5 +106,5 @@ public sealed class DriverFalso : IPlcDriver
 /// <summary>Devuelve siempre el mismo driver, para poder inspeccionarlo después de ejecutar.</summary>
 public sealed class FactoriaFalsa(DriverFalso driver) : IPlcDriverFactory
 {
-    public IPlcDriver Crear(Equipo equipo) => driver;
+    public IPlcDriver Crear(Controlador controlador) => driver;
 }

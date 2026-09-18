@@ -8,7 +8,7 @@ namespace Application.Tests;
 
 public class CatalogoTests
 {
-    private static Equipo NuevoEquipo(string nombre = "bomba3") => new()
+    private static Controlador NuevoControlador(string nombre = "bomba3") => new()
     {
         Nombre = nombre, TipoEquipo = CteFexit.TipoEquipoPlc, Ip = "10.0.0.20", Puerto = 102,
         Protocolo = CteFexit.ProtocoloSiemensS7, Rack = 0, Slot = 1,
@@ -30,10 +30,23 @@ public class CatalogoTests
     private static AccionesController NuevoController(DbDePrueba prueba) =>
         new(new AccionRepository(prueba.CrearContext()), new ServicioAccionesNoUsado());
 
+    /// <summary>
+    /// Devuelve el id del EQUIPO, que es de quien cuelgan las acciones desde el 2026-09-17. El
+    /// controlador sigue existiendo debajo: es por dónde se llega, no de qué se habla.
+    /// </summary>
     private static long SembrarEquipo(DbDePrueba prueba)
     {
         using var ctx = prueba.CrearContext();
-        var equipo = NuevoEquipo();
+        var sector = new Sector { Nombre = "Portería", Orden = 1 };
+        var controlador = NuevoControlador();
+        ctx.AddRange(sector, controlador);
+        ctx.SaveChanges();
+
+        var equipo = new Equipo
+        {
+            Nombre = "bomba3", Descripcion = "Bomba del silo 3",
+            SectorId = sector.Id, ControladorId = controlador.Id,
+        };
         ctx.Equipos.Add(equipo);
         ctx.SaveChanges();
         return equipo.Id;

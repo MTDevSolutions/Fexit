@@ -6,7 +6,7 @@ namespace Infrastructure.Drivers.Simulado;
 
 /// <summary>
 /// El simulador de equipo que pide §9 del spec, para cerrar el circuito Dixit → Fexit → respuesta
-/// sin PLC real. Es un protocolo más y no un modo de arranque especial: se carga un Equipo con
+/// sin PLC real. Es un protocolo más y no un modo de arranque especial: se carga un Controlador con
 /// Protocolo="Simulado" y el resto del sistema no se entera. Nada de #if ni de flags.
 ///
 /// Guarda lo escrito en memoria por (tipo, dirección) y lo devuelve al leer, para que un test pueda

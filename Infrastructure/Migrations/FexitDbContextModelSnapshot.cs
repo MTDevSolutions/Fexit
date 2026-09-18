@@ -67,13 +67,76 @@ namespace Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_Acciones_Codigo");
 
-                    b.HasIndex("EquipoId");
+                    b.HasIndex("EquipoId")
+                        .HasDatabaseName("IX_Acciones_Equipo");
 
                     b.ToTable("Acciones", null, t =>
                         {
                             t.HasCheckConstraint("CK_Acciones_Modo", "Modo IN ('lectura','escritura')");
 
                             t.HasCheckConstraint("CK_Acciones_TipoDireccion", "TipoDireccion IS NULL OR TipoDireccion IN ('Coil','DiscreteInput','HoldingRegister','InputRegister','S7Bit','S7Byte','S7Word','S7DWord','S7Real')");
+                        });
+                });
+
+            modelBuilder.Entity("Domain.Entities.Controlador", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasAnnotation("Sqlite:Autoincrement", true);
+
+                    b.Property<string>("Ip")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Modelo")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("S7300");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Protocolo")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Puerto")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Rack")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("Slot")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("TipoEquipo")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("plc");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Controladores_Nombre");
+
+                    b.ToTable("Controladores", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Controladores_Modelo", "Modelo IN ('S7200','S7300','S7400','S71200','S71500')");
+
+                            t.HasCheckConstraint("CK_Controladores_Protocolo", "Protocolo IN ('SiemensS7','ModbusTcp','Simulado','HuiduSdk')");
+
+                            t.HasCheckConstraint("CK_Controladores_Puerto", "Puerto > 0 AND Puerto <= 65535");
+
+                            t.HasCheckConstraint("CK_Controladores_TipoEquipo", "TipoEquipo IN ('plc','cartel')");
                         });
                 });
 
@@ -128,59 +191,127 @@ namespace Infrastructure.Migrations
                         .HasColumnType("INTEGER")
                         .HasAnnotation("Sqlite:Autoincrement", true);
 
-                    b.Property<string>("Ip")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
+                    b.Property<long>("ControladorId")
+                        .HasColumnType("INTEGER");
 
-                    b.Property<string>("Modelo")
+                    b.Property<string>("Descripcion")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT")
-                        .HasDefaultValue("S7300");
+                        .HasDefaultValue("");
 
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Protocolo")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("Puerto")
+                    b.Property<long>("SectorId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("Rack")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
-                        .HasDefaultValue(0);
-
-                    b.Property<int>("Slot")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
-                        .HasDefaultValue(0);
-
-                    b.Property<string>("TipoEquipo")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT")
-                        .HasDefaultValue("plc");
-
                     b.HasKey("Id");
+
+                    b.HasIndex("ControladorId");
 
                     b.HasIndex("Nombre")
                         .IsUnique()
                         .HasDatabaseName("IX_Equipos_Nombre");
 
-                    b.ToTable("Equipos", null, t =>
+                    b.HasIndex("SectorId", "Nombre")
+                        .HasDatabaseName("IX_Equipos_Sector_Nombre");
+
+                    b.ToTable("Equipos", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.Estado", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasAnnotation("Sqlite:Autoincrement", true);
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Decimales")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
+
+                    b.Property<string>("Direccion")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("EquipoId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Etiquetas")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("EtiquetasJson");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Orden")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("TipoDireccion")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Unidad")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Codigo")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Estados_Codigo");
+
+                    b.HasIndex("EquipoId", "Orden")
+                        .HasDatabaseName("IX_Estados_Equipo_Orden");
+
+                    b.ToTable("Estados", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Equipos_Modelo", "Modelo IN ('S7200','S7300','S7400','S71200','S71500')");
+                            t.HasCheckConstraint("CK_Estados_Decimales", "Decimales >= 0 AND Decimales <= 4");
 
-                            t.HasCheckConstraint("CK_Equipos_Protocolo", "Protocolo IN ('SiemensS7','ModbusTcp','Simulado','HuiduSdk')");
+                            t.HasCheckConstraint("CK_Estados_TipoDireccion", "TipoDireccion IN ('Coil','DiscreteInput','HoldingRegister','InputRegister','S7Bit','S7Byte','S7Word','S7DWord','S7Real')");
 
-                            t.HasCheckConstraint("CK_Equipos_Puerto", "Puerto > 0 AND Puerto <= 65535");
-
-                            t.HasCheckConstraint("CK_Equipos_TipoEquipo", "TipoEquipo IN ('plc','cartel')");
+                            t.HasCheckConstraint("CK_Estados_UnaTraduccion", "(EtiquetasJson IS NOT NULL AND Unidad IS NULL) OR (EtiquetasJson IS NULL AND Unidad IS NOT NULL)");
                         });
+                });
+
+            modelBuilder.Entity("Domain.Entities.Sector", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasAnnotation("Sqlite:Autoincrement", true);
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Orden")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Sectores_Nombre");
+
+                    b.ToTable("Sectores", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.Accion", b =>
@@ -207,7 +338,44 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Equipo", b =>
                 {
+                    b.HasOne("Domain.Entities.Controlador", "Controlador")
+                        .WithMany()
+                        .HasForeignKey("ControladorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Sector", "Sector")
+                        .WithMany("Equipos")
+                        .HasForeignKey("SectorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Controlador");
+
+                    b.Navigation("Sector");
+                });
+
+            modelBuilder.Entity("Domain.Entities.Estado", b =>
+                {
+                    b.HasOne("Domain.Entities.Equipo", "Equipo")
+                        .WithMany("Estados")
+                        .HasForeignKey("EquipoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Equipo");
+                });
+
+            modelBuilder.Entity("Domain.Entities.Equipo", b =>
+                {
                     b.Navigation("Enclavamientos");
+
+                    b.Navigation("Estados");
+                });
+
+            modelBuilder.Entity("Domain.Entities.Sector", b =>
+                {
+                    b.Navigation("Equipos");
                 });
 #pragma warning restore 612, 618
         }
