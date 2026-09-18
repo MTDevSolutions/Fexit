@@ -60,4 +60,27 @@ public class CatalogoAbmEstadosTests
         Assert.Single(r.Avisos);
         Assert.Contains("Radar ingreso", r.Avisos[0]);
     }
+
+    [Fact]
+    public async Task Codigo_repetido_en_el_mismo_lote_no_revienta()
+    {
+        // Un archivo de origen con el mismo Codigo dos veces es el caso realista de un importador que
+        // manda 200 señales de una. Sin dedupe, las dos entrarían como "creado" (la consulta a la base
+        // no ve el Add() todavía no persistido del primer item) y el índice único IX_Estados_Codigo
+        // tira una DbUpdateException sin capturar en el SaveChangesAsync final: un 500 crudo. Gana la
+        // última aparición (ver comentario de GuardarEstadosAsync).
+        using var db = new DbDePrueba();
+        await using var ctx = db.CrearContext();
+        var (barrera, _) = await EstadoCatalogoTests.SembrarDosEquiposAsync(ctx);
+        var repo = new CatalogoRepository(db.CrearContext());
+
+        var r = await repo.GuardarEstadosAsync(barrera.Id,
+            [Bit("posicion_barrera_1", "I0.0"), Bit("posicion_barrera_1", "I0.9")], default);
+
+        Assert.Equal(1, r.Creados);
+        Assert.Equal(0, r.Actualizados);
+        await using var verif = db.CrearContext();
+        Assert.Single(verif.Estados);
+        Assert.Equal("I0.9", verif.Estados.Single().Direccion);
+    }
 }

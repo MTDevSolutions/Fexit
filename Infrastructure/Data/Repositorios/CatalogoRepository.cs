@@ -312,6 +312,13 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
     /// controlador es una decisión de producto, y un aviso que frena la revertiría por la puerta de
     /// atrás. Se compara sólo contra el mismo controlador: dos controladores no comparten fierro, así
     /// que comparar contra toda la instalación daría avisos falsos.
+    ///
+    /// Si el mismo Codigo llega dos veces DENTRO del lote (error del archivo de origen), se dedupe
+    /// ANTES de tocar la base, quedándose con la ÚLTIMA aparición: es el mismo criterio que ya rige
+    /// entre lotes (reimportar pisa lo anterior), y es deliberado, no un accidente de la limitación
+    /// de EF Core que lo motivó — una consulta LINQ no ve los Add() todavía no persistidos de items
+    /// anteriores del mismo lote, así que sin dedupe los dos entrarían como "creados" y el
+    /// SaveChangesAsync final reventaría IX_Estados_Codigo con una DbUpdateException sin capturar.
     /// </summary>
     public async Task<ResultadoAltaEstados> GuardarEstadosAsync(
         long equipoId, IReadOnlyList<EstadoRequest> estados, CancellationToken ct)
@@ -336,10 +343,14 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
                 throw new ConfigInvalidaException("Los decimales del estado tienen que estar entre 0 y 4.");
         }
 
+        // Última aparición gana (ver comentario de la clase). GroupBy conserva el orden original de
+        // cada grupo, así que .Last() es determinístico y no depende de cómo EF Core resuelva after.
+        var deduplicados = estados.GroupBy(e => e.Codigo).Select(g => g.Last()).ToList();
+
         int creados = 0, actualizados = 0;
         var avisos = new List<string>();
 
-        foreach (var req in estados)
+        foreach (var req in deduplicados)
         {
             var otroEquipo = await ctx.Estados
                 .Where(e => e.Direccion == req.Direccion && e.TipoDireccion == req.TipoDireccion
