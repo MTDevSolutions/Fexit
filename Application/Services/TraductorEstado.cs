@@ -4,6 +4,11 @@ using Domain.Entities;
 namespace Application.Services;
 
 /// <summary>
+/// Gemelo de Application/Services/Negocio/TraductorEstado.cs en el repo DixitBE (mismo método, mismos
+/// casos de test, adaptado ahí a EstadoDisponible en vez de Estado). Se duplica a propósito: los dos
+/// repos son soluciones separadas y compartir de verdad pediría un paquete NuGet interno para ~25
+/// líneas de lógica pura. Un cambio de reglas acá va también allá (y viceversa).
+///
 /// Valor crudo → texto. Es la pieza que hace que al modelo le llegue "levantada" y no "1": si le
 /// llegara el número tendría que adivinar el sentido, y adivinaría distinto según el día.
 ///
