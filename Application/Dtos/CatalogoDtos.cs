@@ -33,3 +33,30 @@ public record AccionCatalogoDto(
     long Id, string Codigo, string Descripcion, string Modo, long EquipoId,
     string? Direccion, string? TipoDireccion, int? Valor, bool UsaEnclavamientos, bool Habilitada,
     string? DefinicionParametrosJson = null, string? ConfigJson = null);
+
+public record SectorRequest(string Nombre, int Orden);
+
+public record SectorDto(long Id, string Nombre, int Orden);
+
+public record EquipoRequest(string Nombre, string Descripcion, long SectorId, long ControladorId);
+
+public record EquipoDto(
+    long Id, string Nombre, string Descripcion, long SectorId, string Sector, long ControladorId);
+
+/// <summary>
+/// Alta/edición de un estado. El código es la clave de negocio (Codigo, no Id): así un importador
+/// puede reimportar el mismo lote sin inventar un mapeo a Id de su lado (§3.1).
+/// </summary>
+public record EstadoRequest(
+    string Codigo, string Nombre, string Descripcion, string Direccion, string TipoDireccion,
+    Dictionary<int, string>? Etiquetas, string? Unidad, int Decimales, int Orden);
+
+public record EstadoDto(
+    long Id, long EquipoId, string Codigo, string Nombre, string Descripcion, string Direccion,
+    string TipoDireccion, Dictionary<int, string>? Etiquetas, string? Unidad, int Decimales, int Orden);
+
+/// <summary>
+/// Resultado del alta en lote (§3.1): cuántas filas se crearon, cuántas se actualizaron porque ya
+/// existía el código, y los avisos de dirección repetida (§2.4) — que informan y no bloquean.
+/// </summary>
+public record ResultadoAltaEstados(int Creados, int Actualizados, List<string> Avisos);

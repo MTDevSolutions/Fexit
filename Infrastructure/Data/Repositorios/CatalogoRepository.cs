@@ -257,6 +257,145 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
                 $"El máximo del parámetro ({def.Maximo}) no entra en {ancho} byte(s) para {tipoParametro}: el tope es {tope}.");
     }
 
+    public async Task<long> CrearSectorAsync(SectorRequest req, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(req.Nombre))
+            throw new ConfigInvalidaException("Falta el nombre del sector.");
+
+        var nombre = req.Nombre.Trim();
+        if (await ctx.Sectores.AnyAsync(s => s.Nombre == nombre, ct))
+            throw new ConfigInvalidaException("Ya hay un sector con ese nombre.");
+
+        var sector = new Sector { Nombre = nombre, Orden = req.Orden };
+        ctx.Sectores.Add(sector);
+        await ctx.SaveChangesAsync(ct);
+        return sector.Id;
+    }
+
+    public async Task<long> CrearEquipoAsync(EquipoRequest req, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(req.Nombre))
+            throw new ConfigInvalidaException("Falta el nombre del equipo.");
+        if (!await ctx.Sectores.AnyAsync(s => s.Id == req.SectorId, ct))
+            throw new ConfigInvalidaException("El sector no existe.");
+        if (!await ctx.Controladores.AnyAsync(c => c.Id == req.ControladorId, ct))
+            throw new ConfigInvalidaException("El controlador no existe.");
+
+        var nombre = req.Nombre.Trim();
+        // Único en toda la instalación (IX_Equipos_Nombre): es lo que el usuario pronuncia y lo que
+        // arma la respuesta, y dos "Barrera 1" la volverían ambigua.
+        if (await ctx.Equipos.AnyAsync(e => e.Nombre == nombre, ct))
+            throw new ConfigInvalidaException("Ya hay un equipo con ese nombre.");
+
+        var equipo = new Equipo
+        {
+            Nombre = nombre, Descripcion = req.Descripcion?.Trim() ?? string.Empty,
+            SectorId = req.SectorId, ControladorId = req.ControladorId,
+        };
+        ctx.Equipos.Add(equipo);
+        await ctx.SaveChangesAsync(ct);
+        return equipo.Id;
+    }
+
+    public async Task<IReadOnlyList<EquipoDto>> ListarEquiposAsync(CancellationToken ct) =>
+        await ctx.Equipos.AsNoTracking().OrderBy(e => e.Nombre)
+            .Select(e => new EquipoDto(e.Id, e.Nombre, e.Descripcion, e.SectorId, e.Sector!.Nombre, e.ControladorId))
+            .ToListAsync(ct);
+
+    /// <summary>
+    /// Alta/actualización de estados en lote, idempotente por Codigo (§3.1): la clave de negocio es
+    /// el código y no el Id (para que un importador pueda reimportar sin llevarse un mapeo propio),
+    /// reimportar actualiza en vez de duplicar, entra un lote entero por llamada, y lo que ya estaba
+    /// cargado se corrige en la misma fila en vez de perderse.
+    ///
+    /// El aviso de dirección repetida NO bloquea (§2.4): la duplicación entre equipos del mismo
+    /// controlador es una decisión de producto, y un aviso que frena la revertiría por la puerta de
+    /// atrás. Se compara sólo contra el mismo controlador: dos controladores no comparten fierro, así
+    /// que comparar contra toda la instalación daría avisos falsos.
+    /// </summary>
+    public async Task<ResultadoAltaEstados> GuardarEstadosAsync(
+        long equipoId, IReadOnlyList<EstadoRequest> estados, CancellationToken ct)
+    {
+        var controladorId = await ctx.Equipos.Where(e => e.Id == equipoId)
+            .Select(e => (long?)e.ControladorId).FirstOrDefaultAsync(ct)
+            ?? throw new AccionNoEncontradaException("El equipo no existe.");
+
+        foreach (var req in estados)
+        {
+            if (string.IsNullOrWhiteSpace(req.Codigo) || string.IsNullOrWhiteSpace(req.Nombre)
+                || string.IsNullOrWhiteSpace(req.Direccion))
+                throw new ConfigInvalidaException("Faltan el código, el nombre o la dirección del estado.");
+            if (!CteFexit.TiposDireccion.Contains(req.TipoDireccion))
+                throw new ConfigInvalidaException("Tipo de dirección desconocido.");
+            // Refleja el CHECK CK_Estados_UnaTraduccion: mejor un 400 legible acá que una
+            // DbUpdateException al guardar el lote entero.
+            if ((req.Etiquetas is null) == (req.Unidad is null))
+                throw new ConfigInvalidaException(
+                    "Un estado necesita etiquetas o unidad para traducirse, exactamente una de las dos.");
+            if (req.Decimales < 0 || req.Decimales > 4)
+                throw new ConfigInvalidaException("Los decimales del estado tienen que estar entre 0 y 4.");
+        }
+
+        int creados = 0, actualizados = 0;
+        var avisos = new List<string>();
+
+        foreach (var req in estados)
+        {
+            var otroEquipo = await ctx.Estados
+                .Where(e => e.Direccion == req.Direccion && e.TipoDireccion == req.TipoDireccion
+                         && e.EquipoId != equipoId && e.Equipo!.ControladorId == controladorId)
+                .Select(e => e.Equipo!.Nombre)
+                .FirstOrDefaultAsync(ct);
+            if (otroEquipo is not null)
+                avisos.Add($"La dirección de «{req.Nombre}» ya está cargada en {otroEquipo}. Si cambia, hay que corregir las dos.");
+
+            var existente = await ctx.Estados.FirstOrDefaultAsync(e => e.Codigo == req.Codigo, ct);
+            if (existente is null)
+            {
+                ctx.Estados.Add(new Estado
+                {
+                    EquipoId = equipoId, Codigo = req.Codigo, Nombre = req.Nombre,
+                    Descripcion = req.Descripcion, Direccion = req.Direccion,
+                    TipoDireccion = req.TipoDireccion, Etiquetas = req.Etiquetas,
+                    Unidad = req.Unidad, Decimales = req.Decimales, Orden = req.Orden,
+                });
+                creados++;
+            }
+            else
+            {
+                existente.EquipoId = equipoId;
+                existente.Nombre = req.Nombre;
+                existente.Descripcion = req.Descripcion;
+                existente.Direccion = req.Direccion;
+                existente.TipoDireccion = req.TipoDireccion;
+                existente.Etiquetas = req.Etiquetas;
+                existente.Unidad = req.Unidad;
+                existente.Decimales = req.Decimales;
+                existente.Orden = req.Orden;
+                actualizados++;
+            }
+        }
+
+        await ctx.SaveChangesAsync(ct);
+        return new ResultadoAltaEstados(creados, actualizados, avisos);
+    }
+
+    public async Task<IReadOnlyList<EstadoDto>> ListarEstadosAsync(long equipoId, CancellationToken ct) =>
+        await ctx.Estados.AsNoTracking().Where(e => e.EquipoId == equipoId)
+            .OrderBy(e => e.Orden).ThenBy(e => e.Id)
+            .Select(e => new EstadoDto(
+                e.Id, e.EquipoId, e.Codigo, e.Nombre, e.Descripcion, e.Direccion, e.TipoDireccion,
+                e.Etiquetas, e.Unidad, e.Decimales, e.Orden))
+            .ToListAsync(ct);
+
+    public async Task BorrarEstadoAsync(long id, CancellationToken ct)
+    {
+        var fila = await ctx.Estados.FirstOrDefaultAsync(e => e.Id == id, ct)
+            ?? throw new AccionNoEncontradaException("El estado no existe.");
+        ctx.Estados.Remove(fila);
+        await ctx.SaveChangesAsync(ct);
+    }
+
     private static void ValidarEscrituraCartel(AccionRequest req, List<DefinicionParametro> defs)
     {
         if (req.UsaEnclavamientos)

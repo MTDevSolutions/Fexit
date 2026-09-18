@@ -32,6 +32,36 @@ public class CatalogoController(ICatalogoRepository repository) : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("sectores")]
+    public async Task<ActionResult<long>> CrearSector([FromBody] SectorRequest req, CancellationToken ct) =>
+        Ok(await repository.CrearSectorAsync(req, ct));
+
+    [HttpPost("equipos")]
+    public async Task<ActionResult<long>> CrearEquipo([FromBody] EquipoRequest req, CancellationToken ct) =>
+        Ok(await repository.CrearEquipoAsync(req, ct));
+
+    [HttpGet("equipos")]
+    public async Task<ActionResult<IReadOnlyList<EquipoDto>>> ListarEquipos(CancellationToken ct) =>
+        Ok(await repository.ListarEquiposAsync(ct));
+
+    // Lote: un importador con 200 señales no puede hacer 200 llamadas (§3.1).
+    [HttpPost("equipos/{equipoId:long}/estados")]
+    public async Task<ActionResult<ResultadoAltaEstados>> GuardarEstados(
+        long equipoId, [FromBody] List<EstadoRequest> estados, CancellationToken ct) =>
+        Ok(await repository.GuardarEstadosAsync(equipoId, estados, ct));
+
+    [HttpGet("equipos/{equipoId:long}/estados")]
+    public async Task<ActionResult<IReadOnlyList<EstadoDto>>> ListarEstados(
+        long equipoId, CancellationToken ct) =>
+        Ok(await repository.ListarEstadosAsync(equipoId, ct));
+
+    [HttpDelete("estados/{id:long}")]
+    public async Task<ActionResult> BorrarEstado(long id, CancellationToken ct)
+    {
+        await repository.BorrarEstadoAsync(id, ct);
+        return NoContent();
+    }
+
     // Cuelgan del EQUIPO y ya no del controlador (spec 2026-09-17 §2.2): "el portón de playa está
     // abierto" es una precondición de la barrera, no del PLC que además atiende al radar.
     [HttpGet("equipos/{equipoId:long}/enclavamientos")]

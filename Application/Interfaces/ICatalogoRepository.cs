@@ -20,4 +20,15 @@ public interface ICatalogoRepository
     Task<IReadOnlyList<AccionCatalogoDto>> ListarAccionesAsync(CancellationToken ct);
     Task EditarAccionAsync(long id, AccionRequest req, CancellationToken ct);
     Task BorrarAccionAsync(long id, CancellationToken ct);
+
+    Task<long> CrearSectorAsync(SectorRequest req, CancellationToken ct);
+
+    Task<long> CrearEquipoAsync(EquipoRequest req, CancellationToken ct);
+    Task<IReadOnlyList<EquipoDto>> ListarEquiposAsync(CancellationToken ct);
+
+    /// <summary>Alta en lote, idempotente por Codigo (§3.1). Ver CatalogoRepository para el detalle.</summary>
+    Task<ResultadoAltaEstados> GuardarEstadosAsync(
+        long equipoId, IReadOnlyList<EstadoRequest> estados, CancellationToken ct);
+    Task<IReadOnlyList<EstadoDto>> ListarEstadosAsync(long equipoId, CancellationToken ct);
+    Task BorrarEstadoAsync(long id, CancellationToken ct);
 }
