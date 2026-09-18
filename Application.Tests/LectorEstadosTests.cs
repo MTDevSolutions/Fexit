@@ -2,6 +2,8 @@ using Application.Interfaces;
 using Application.Services;
 using Application.Settings;
 using Domain.Entities;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace Application.Tests;
@@ -19,13 +21,35 @@ public class LectorEstadosTests
         }
     }
 
+    /// <summary>Guarda las excepciones que se loguean, para probar que la causa real no se pierde.</summary>
+    private sealed class LoggerEspia : ILogger<LectorEstados>
+    {
+        public List<Exception> ExcepcionesLogueadas { get; } = [];
+
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (exception is not null) ExcepcionesLogueadas.Add(exception);
+        }
+
+        private sealed class NullScope : IDisposable
+        {
+            public static readonly NullScope Instance = new();
+            public void Dispose() { }
+        }
+    }
+
     [Fact]
     public async Task Abre_una_conexion_por_controlador_y_no_una_por_senal()
     {
         var estados = SeisEstadosEnDosControladores();
         var fabrica = new FabricaEspia();
 
-        await new LectorEstados(fabrica, Opciones()).LeerAsync(estados, estados.Select(e => e.Codigo).ToList(), default);
+        await new LectorEstados(fabrica, Opciones(), Logger())
+            .LeerAsync(estados, estados.Select(e => e.Codigo).ToList(), default);
 
         Assert.Equal(2, fabrica.IpsConectadas.Count);
         Assert.Equal(["10.0.0.1", "10.0.0.2"], fabrica.IpsConectadas.Order());
@@ -37,7 +61,7 @@ public class LectorEstadosTests
         // Si desaparecieran, el redactor escribiría "está todo bien" sin mencionar lo que no sabe, y
         // ese silencio se lee como buena noticia.
         var estados = SeisEstadosEnDosControladores();
-        var lector = new LectorEstados(new FabricaEspia("10.0.0.2"), Opciones());
+        var lector = new LectorEstados(new FabricaEspia("10.0.0.2"), Opciones(), Logger());
 
         var r = await lector.LeerAsync(estados, estados.Select(e => e.Codigo).ToList(), default);
 
@@ -47,12 +71,29 @@ public class LectorEstadosTests
     }
 
     [Fact]
+    public async Task Un_controlador_caido_loguea_la_causa_real()
+    {
+        // El detalle que sale por la API sólo dice "PLC B: no se pudo leer": sin este log, la causa
+        // (timeout, rechazo de conexión, protocolo) se pierde para siempre, porque este endpoint
+        // nunca propaga la excepción — a diferencia de EjecutorPlc, acá no hay 502 que
+        // ManejadorExcepciones pueda loguear.
+        var estados = SeisEstadosEnDosControladores();
+        var logger = new LoggerEspia();
+        var lector = new LectorEstados(new FabricaEspia("10.0.0.2"), Opciones(), logger);
+
+        await lector.LeerAsync(estados, estados.Select(e => e.Codigo).ToList(), default);
+
+        Assert.Single(logger.ExcepcionesLogueadas);
+    }
+
+    [Fact]
     public async Task Un_codigo_que_no_existe_se_reporta_y_no_voltea_el_pedido()
     {
         var estados = SeisEstadosEnDosControladores();
         var pedidos = estados.Select(e => e.Codigo).Append("no_existe").ToList();
 
-        var r = await new LectorEstados(new FabricaEspia(), Opciones()).LeerAsync(estados, pedidos, default);
+        var r = await new LectorEstados(new FabricaEspia(), Opciones(), Logger())
+            .LeerAsync(estados, pedidos, default);
 
         Assert.Equal(6, r.Filas.Count);
         Assert.Contains("no_existe", r.Detalle);
@@ -96,4 +137,6 @@ public class LectorEstadosTests
     }
 
     private static IOptions<FexitSettings> Opciones() => Options.Create(new FexitSettings());
+
+    private static ILogger<LectorEstados> Logger() => NullLogger<LectorEstados>.Instance;
 }

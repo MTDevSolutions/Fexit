@@ -8,6 +8,7 @@
     <!-- LectorEstados vive acá y no en Infrastructure (como EjecutorPlc) porque no toca la base ni
          un driver concreto: sólo IPlcDriverFactory, que ya es una interfaz de Application. -->
     <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
   </ItemGroup>
 
   <PropertyGroup>

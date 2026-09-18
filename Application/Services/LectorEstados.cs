@@ -3,6 +3,7 @@ using Application.Dtos;
 using Application.Interfaces;
 using Application.Settings;
 using Domain.Entities;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Application.Services;
@@ -15,7 +16,7 @@ namespace Application.Services;
 /// el valor vacío y el detalle dice cuáles. Tirar 502 por un equipo caído haría perder la respuesta
 /// de todo lo demás.
 /// </summary>
-public class LectorEstados(IPlcDriverFactory fabrica, IOptions<FexitSettings> settings)
+public class LectorEstados(IPlcDriverFactory fabrica, IOptions<FexitSettings> settings, ILogger<LectorEstados> logger)
 {
     public const string ColumnaSector = "sector";
     public const string ColumnaEquipo = "equipo";
@@ -52,7 +53,11 @@ public class LectorEstados(IPlcDriverFactory fabrica, IOptions<FexitSettings> se
             catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
             {
                 // El nombre del equipo sí puede salir: es lo que el usuario nombró. La dirección, la
-                // IP y el mensaje del driver, no.
+                // IP y el mensaje del driver, no — pero acá adentro sí, porque esto es el log de este
+                // lado y nunca sale por la API. Sin esto, la excepción real se perdía en silencio: a
+                // diferencia de EjecutorPlc, este endpoint nunca la propaga (devuelve 200 con
+                // resultado parcial a propósito), así que ManejadorExcepciones nunca llega a verla.
+                logger.LogWarning(ex, "No se pudo leer el controlador {Controlador}.", controlador.Nombre);
                 foreach (var e in grupo) equiposCaidos.Add(e.Equipo!.Nombre);
             }
             finally
