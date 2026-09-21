@@ -297,6 +297,34 @@ public class CatalogoRepository(FexitDbContext ctx) : ICatalogoRepository
         return equipo.Id;
     }
 
+    /// <summary>
+    /// Renombrar o reubicar un equipo. Existe porque sin PUT la única forma de corregir el nombre
+    /// era borrar y volver a crear, y el borrado se lleva los estados del equipo por cascada: se
+    /// perdía la carga entera por arreglar una palabra.
+    ///
+    /// El controlador no se toca (ver EquipoEdicionRequest).
+    /// </summary>
+    public async Task EditarEquipoAsync(long id, EquipoEdicionRequest req, CancellationToken ct)
+    {
+        var equipo = await ctx.Equipos.FirstOrDefaultAsync(e => e.Id == id, ct)
+            ?? throw new AccionNoEncontradaException("El equipo no existe.");
+
+        if (string.IsNullOrWhiteSpace(req.Nombre))
+            throw new ConfigInvalidaException("Falta el nombre del equipo.");
+        if (!await ctx.Sectores.AnyAsync(s => s.Id == req.SectorId, ct))
+            throw new ConfigInvalidaException("El sector no existe.");
+
+        var nombre = req.Nombre.Trim();
+        // Excluyendo el propio id: si no, guardar sin cambiarle el nombre choca contra sí mismo.
+        if (await ctx.Equipos.AnyAsync(e => e.Nombre == nombre && e.Id != id, ct))
+            throw new ConfigInvalidaException("Ya hay un equipo con ese nombre.");
+
+        equipo.Nombre = nombre;
+        equipo.Descripcion = req.Descripcion?.Trim() ?? string.Empty;
+        equipo.SectorId = req.SectorId;
+        await ctx.SaveChangesAsync(ct);
+    }
+
     public async Task<IReadOnlyList<EquipoDto>> ListarEquiposAsync(CancellationToken ct) =>
         await ctx.Equipos.AsNoTracking().OrderBy(e => e.Nombre)
             .Select(e => new EquipoDto(e.Id, e.Nombre, e.Descripcion, e.SectorId, e.Sector!.Nombre, e.ControladorId))

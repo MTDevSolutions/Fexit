@@ -40,6 +40,15 @@ public record SectorDto(long Id, string Nombre, int Orden);
 
 public record EquipoRequest(string Nombre, string Descripcion, long SectorId, long ControladorId);
 
+/// <summary>
+/// Edición de un equipo. NO lleva ControladorId a propósito: las direcciones de sus estados
+/// (DB1.DBX2.0 y compañía) sólo significan algo contra el controlador que las lee, así que moverlo
+/// de PLC por un PUT dejaría al equipo entero apuntando a otro fierro sin un solo aviso. Eso se
+/// hace de nuevo, no editando. Y aceptar el campo para ignorarlo sería peor: el que llama se lleva
+/// un 204 creyendo que lo movió.
+/// </summary>
+public record EquipoEdicionRequest(string Nombre, string Descripcion, long SectorId);
+
 public record EquipoDto(
     long Id, string Nombre, string Descripcion, long SectorId, string Sector, long ControladorId);
 

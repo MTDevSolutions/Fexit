@@ -253,4 +253,95 @@ public class CatalogoAbmTests
 
         Assert.Equal("10.0.0.20", Assert.Single(controladores).Ip);
     }
+
+    private static long SectorDe(DbDePrueba prueba, long equipoId)
+    {
+        using var ctx = prueba.CrearContext();
+        return ctx.Equipos.Single(e => e.Id == equipoId).SectorId;
+    }
+
+    private static EquipoEdicionRequest Edicion(DbDePrueba prueba, long equipoId, string nombre) =>
+        new(nombre, "Barrera de ingreso", SectorDe(prueba, equipoId));
+
+    [Fact]
+    public async Task EditarUnEquipoLeCambiaElNombre()
+    {
+        using var prueba = new DbDePrueba();
+        var equipoId = CrearEquipo(prueba);
+
+        await Controller(prueba).EditarEquipo(equipoId, Edicion(prueba, equipoId, "Barrera 1"), default);
+
+        var equipo = Assert.Single(Valor(await Controller(prueba).ListarEquipos(default)));
+        Assert.Equal("Barrera 1", equipo.Nombre);
+        Assert.Equal("Barrera de ingreso", equipo.Descripcion);
+    }
+
+    [Fact]
+    public async Task EditarUnEquipoNoLePierdeLosEstados()
+    {
+        // Es el motivo entero del PUT: antes renombrar era borrar y crear de nuevo, y el borrado se
+        // lleva los estados por cascada.
+        using var prueba = new DbDePrueba();
+        var equipoId = CrearEquipo(prueba);
+        await Controller(prueba).GuardarEstados(equipoId,
+            [new EstadoRequest("posicion_barrera", "Posición", "d", "DB1.DBX2.0", CteFexit.S7Bit,
+                new Dictionary<int, string> { [0] = "abajo", [1] = "arriba" }, null, 0, 0)], default);
+
+        await Controller(prueba).EditarEquipo(equipoId, Edicion(prueba, equipoId, "Barrera 1"), default);
+
+        var estados = Valor(await Controller(prueba).ListarEstados(equipoId, default));
+        Assert.Equal("posicion_barrera", Assert.Single(estados).Codigo);
+    }
+
+    [Fact]
+    public async Task GuardarUnEquipoSinCambiarleElNombreNoChocaConSiMismo()
+    {
+        using var prueba = new DbDePrueba();
+        var equipoId = CrearEquipo(prueba);
+        var nombre = Valor(await Controller(prueba).ListarEquipos(default)).Single().Nombre;
+
+        await Controller(prueba).EditarEquipo(equipoId, Edicion(prueba, equipoId, nombre), default);
+
+        Assert.Equal(nombre, Assert.Single(Valor(await Controller(prueba).ListarEquipos(default))).Nombre);
+    }
+
+    [Fact]
+    public async Task NoSePuedeRenombrarUnEquipoConElNombreDeOtro()
+    {
+        using var prueba = new DbDePrueba();
+        var equipoId = CrearEquipo(prueba);
+        prueba.SembrarEquipo(ControladorDe(prueba, equipoId), "Barrera 1");
+
+        var ex = await Assert.ThrowsAsync<ConfigInvalidaException>(
+            () => Controller(prueba).EditarEquipo(equipoId, Edicion(prueba, equipoId, "Barrera 1"), default));
+
+        Assert.Contains("Ya hay un equipo con ese nombre", ex.Message);
+    }
+
+    [Fact]
+    public async Task EditarUnEquipoQueNoExisteEs404()
+    {
+        using var prueba = new DbDePrueba();
+        var equipoId = CrearEquipo(prueba);
+
+        var ex = await Assert.ThrowsAsync<AccionNoEncontradaException>(
+            () => Controller(prueba).EditarEquipo(equipoId + 999, Edicion(prueba, equipoId, "Barrera 1"), default));
+
+        // El mensaje especializado: un 404 que diga "la acción no existe" manda a buscar el problema
+        // al lugar equivocado.
+        Assert.Contains("El equipo no existe", ex.Message);
+    }
+
+    [Fact]
+    public async Task NoSePuedeMoverUnEquipoAUnSectorQueNoExiste()
+    {
+        using var prueba = new DbDePrueba();
+        var equipoId = CrearEquipo(prueba);
+
+        var ex = await Assert.ThrowsAsync<ConfigInvalidaException>(
+            () => Controller(prueba).EditarEquipo(
+                equipoId, new EquipoEdicionRequest("Barrera 1", "d", SectorDe(prueba, equipoId) + 999), default));
+
+        Assert.Contains("El sector no existe", ex.Message);
+    }
 }

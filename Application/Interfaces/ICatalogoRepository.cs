@@ -25,6 +25,7 @@ public interface ICatalogoRepository
 
     Task<long> CrearEquipoAsync(EquipoRequest req, CancellationToken ct);
     Task<IReadOnlyList<EquipoDto>> ListarEquiposAsync(CancellationToken ct);
+    Task EditarEquipoAsync(long id, EquipoEdicionRequest req, CancellationToken ct);
 
     /// <summary>Alta en lote, idempotente por Codigo (§3.1). Ver CatalogoRepository para el detalle.</summary>
     Task<ResultadoAltaEstados> GuardarEstadosAsync(

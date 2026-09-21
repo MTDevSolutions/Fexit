@@ -12,6 +12,10 @@ namespace Web.Controllers;
 /// No hay PUT de controlador ni de enclavamiento a propósito: son pocas filas, se cargan una vez en
 /// la puesta en marcha, y borrar y volver a crear es un camino menos que mantener y probar. La acción
 /// sí tiene PUT, que es la que se toca seguido (habilitar, deshabilitar, corregir la descripción).
+///
+/// El equipo también tiene PUT, y por un motivo distinto: su nombre es el que el usuario pronuncia
+/// ("¿cómo está la barrera 1?"), así que se corrige; y "borrar y crear de nuevo" no es un camino
+/// equivalente, porque el borrado se lleva sus estados por cascada.
 /// </summary>
 [ApiController]
 [Route("catalogo")]
@@ -43,6 +47,13 @@ public class CatalogoController(ICatalogoRepository repository) : ControllerBase
     [HttpGet("equipos")]
     public async Task<ActionResult<IReadOnlyList<EquipoDto>>> ListarEquipos(CancellationToken ct) =>
         Ok(await repository.ListarEquiposAsync(ct));
+
+    [HttpPut("equipos/{id:long}")]
+    public async Task<ActionResult> EditarEquipo(long id, [FromBody] EquipoEdicionRequest req, CancellationToken ct)
+    {
+        await repository.EditarEquipoAsync(id, req, ct);
+        return NoContent();
+    }
 
     // Lote: un importador con 200 señales no puede hacer 200 llamadas (§3.1).
     [HttpPost("equipos/{equipoId:long}/estados")]
